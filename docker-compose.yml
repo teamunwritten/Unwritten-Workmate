@@ -1,0 +1,83 @@
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Kolkata
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-leave_portal}
+      MYSQL_USER: ${MYSQL_USER:-leave_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-leave_pass}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-leave_root_pass}
+    command: --default-time-zone=Asia/Kolkata --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${MYSQL_USER:-leave_user}", "--password=${MYSQL_PASSWORD:-leave_pass}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      TZ: Asia/Kolkata
+      MYSQL_HOST: mysql
+      MYSQL_USER: ${MYSQL_USER:-leave_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-leave_pass}
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-leave_user}:${MYSQL_PASSWORD:-leave_pass}@mysql:3306/${MYSQL_DATABASE:-leave_portal}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      ORG_TIMEZONE: Asia/Kolkata
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      SEED_HR_ADMIN_EMAIL: ${SEED_HR_ADMIN_EMAIL:-hr.admin@teamunwritten.dev}
+      UPLOADS_DIR: /app/uploads
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Unwritten Workmate}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
+    volumes:
+      - backend_uploads:/app/uploads
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      BACKEND_INTERNAL_URL: http://backend:8000
+      NODE_ENV: production
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
+    ports:
+      - "3000:3000"
+
+  adminer:
+    image: adminer:latest
+    restart: unless-stopped
+    depends_on:
+      - mysql
+    ports:
+      - "8081:8080"
+
+volumes:
+  mysql_data:
+  backend_uploads:
