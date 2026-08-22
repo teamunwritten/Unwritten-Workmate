@@ -64,6 +64,7 @@ export default function LeaveCalendarApply({
   const [violations, setViolations] = useState<ValidationErrorResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
     function onMouseUp() {
@@ -73,6 +74,15 @@ export default function LeaveCalendarApply({
     window.addEventListener("mouseup", onMouseUp);
     return () => window.removeEventListener("mouseup", onMouseUp);
   }, []);
+
+  // Open the popup once a drag (or single click) finishes -- opening it mid-drag would put an
+  // overlay over the calendar and block the mouseenter events a range-drag depends on.
+  useEffect(() => {
+    if (!isDragging && selected.size > 0) {
+      setModalOpen(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDragging]);
 
   const bookedByDate = useMemo(() => {
     const map = new Map<string, BookedDay>();
@@ -113,6 +123,7 @@ export default function LeaveCalendarApply({
     setSelected(new Set());
     setViolations(null);
     setSuccess(false);
+    setModalOpen(false);
   }
 
   function goToMonth(delta: number) {
@@ -149,9 +160,13 @@ export default function LeaveCalendarApply({
         reason: reason || undefined,
       });
       setSuccess(true);
-      setSelected(new Set());
       setReason("");
       router.refresh();
+      setTimeout(() => {
+        setSelected(new Set());
+        setSuccess(false);
+        setModalOpen(false);
+      }, 900);
     } catch (err: any) {
       if (err.status === 422 && err.body?.detail) {
         setViolations(err.body.detail as ValidationErrorResponse);
@@ -173,8 +188,8 @@ export default function LeaveCalendarApply({
   const todayIso = toISODate(today);
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 items-start select-none">
-      <div className="card flex-1 p-4 min-w-0">
+    <div className="select-none">
+      <div className="card p-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <button className="btn-secondary text-xs px-2 py-1" onClick={() => goToMonth(-1)}>
@@ -244,22 +259,25 @@ export default function LeaveCalendarApply({
         <p className="text-xs text-muted mt-3">Click a date to apply for one day, or click and drag across dates for a bulk request.</p>
       </div>
 
-      <div className="card p-5 w-full lg:w-80 shrink-0 space-y-4 lg:sticky lg:top-6">
-        <div>
-          <div className="text-sm font-semibold mb-0.5">New request</div>
-          <div className="text-xs text-muted">
-            {sortedSelected.length === 0
-              ? "Select a date on the calendar"
-              : sortedSelected.length === 1
-              ? new Date(sortedSelected[0] + "T00:00:00").toDateString()
-              : `${new Date(sortedSelected[0] + "T00:00:00").toDateString()} → ${new Date(
-                  sortedSelected[sortedSelected.length - 1] + "T00:00:00"
-                ).toDateString()} · ${sortedSelected.length} day(s)`}
-          </div>
-        </div>
+      {modalOpen && sortedSelected.length > 0 && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-4" onClick={clearSelection}>
+          <div className="card w-full max-w-md p-5 space-y-4 animate-[fadeIn_0.15s_ease-out]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="text-sm font-semibold mb-0.5">New request</div>
+                <div className="text-xs text-muted">
+                  {sortedSelected.length === 1
+                    ? new Date(sortedSelected[0] + "T00:00:00").toDateString()
+                    : `${new Date(sortedSelected[0] + "T00:00:00").toDateString()} → ${new Date(
+                        sortedSelected[sortedSelected.length - 1] + "T00:00:00"
+                      ).toDateString()} · ${sortedSelected.length} day(s)`}
+                </div>
+              </div>
+              <button onClick={clearSelection} type="button" className="text-muted hover:text-ink text-lg leading-none">
+                ×
+              </button>
+            </div>
 
-        {sortedSelected.length > 0 && (
-          <>
             <div>
               <label className="block text-xs font-medium text-muted mb-1.5">Request type</label>
               <div className="flex gap-2">
@@ -328,12 +346,12 @@ export default function LeaveCalendarApply({
                 {submitting ? "Submitting..." : "Submit request"}
               </button>
               <button onClick={clearSelection} className="btn-secondary" type="button">
-                Clear
+                Cancel
               </button>
             </div>
-          </>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
