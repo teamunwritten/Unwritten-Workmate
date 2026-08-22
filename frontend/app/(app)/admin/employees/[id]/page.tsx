@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { backendFetch } from "@/lib/session";
-import { Department, Employee, LeaveBalance } from "@/lib/types";
+import { Department, Employee, LeaveBalance, roleLabel } from "@/lib/types";
 import Avatar from "@/components/Avatar";
 import EmployeeEditPanel from "@/components/EmployeeEditPanel";
 
@@ -58,7 +58,7 @@ export default async function EmployeeProfilePage({ params }: { params: { id: st
               </span>
             </div>
             <div className="text-sm text-muted">
-              {employee.position || employee.role.replace("_", " ")}
+              {employee.position || roleLabel(employee.role)}
               {employee.department_name ? ` · ${employee.department_name}` : ""}
             </div>
             <div className="text-xs text-muted mt-0.5">{employee.email}</div>

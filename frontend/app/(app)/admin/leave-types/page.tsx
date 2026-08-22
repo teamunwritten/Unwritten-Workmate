@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createLeaveType, listLeaveTypes } from "@/lib/api/admin";
+import { createLeaveType, listLeaveTypes, updateLeaveType } from "@/lib/api/admin";
 import { LeaveType } from "@/lib/types";
 
 const EMPTY = { code: "", name: "", default_annual_days: 0, accrual_mode: "UPFRONT", allow_lop_conversion: false };
@@ -10,6 +10,9 @@ export default function AdminLeaveTypesPage() {
   const [types, setTypes] = useState<LeaveType[]>([]);
   const [form, setForm] = useState<any>(EMPTY);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editDays, setEditDays] = useState("");
+  const [savingId, setSavingId] = useState<number | null>(null);
 
   async function load() {
     setTypes(await listLeaveTypes());
@@ -24,6 +27,28 @@ export default function AdminLeaveTypesPage() {
     setForm(EMPTY);
     setShowForm(false);
     load();
+  }
+
+  function startEdit(t: LeaveType) {
+    setEditingId(t.id);
+    setEditDays(String(t.default_annual_days));
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditDays("");
+  }
+
+  async function saveEdit(id: number) {
+    setSavingId(id);
+    try {
+      await updateLeaveType(id, { default_annual_days: Number(editDays) });
+      setEditingId(null);
+      setEditDays("");
+      await load();
+    } finally {
+      setSavingId(null);
+    }
   }
 
   return (
@@ -79,6 +104,7 @@ export default function AdminLeaveTypesPage() {
               <th className="px-5 py-2.5 font-medium">Default days</th>
               <th className="px-5 py-2.5 font-medium">Accrual</th>
               <th className="px-5 py-2.5 font-medium">LOP</th>
+              <th className="px-5 py-2.5 font-medium"></th>
             </tr>
           </thead>
           <tbody>
@@ -86,9 +112,42 @@ export default function AdminLeaveTypesPage() {
               <tr key={t.id} className="border-b border-border last:border-0">
                 <td className="px-5 py-3 font-medium">{t.code}</td>
                 <td className="px-5 py-3">{t.name}</td>
-                <td className="px-5 py-3 tabular-nums">{t.default_annual_days}</td>
+                <td className="px-5 py-3 tabular-nums">
+                  {editingId === t.id ? (
+                    <input
+                      type="number"
+                      step="0.5"
+                      autoFocus
+                      className="input w-20 py-1"
+                      value={editDays}
+                      onChange={(e) => setEditDays(e.target.value)}
+                    />
+                  ) : (
+                    t.default_annual_days
+                  )}
+                </td>
                 <td className="px-5 py-3 text-muted">{t.accrual_mode}</td>
                 <td className="px-5 py-3">{t.allow_lop_conversion ? "Yes" : "No"}</td>
+                <td className="px-5 py-3 text-right">
+                  {editingId === t.id ? (
+                    <div className="flex justify-end gap-2">
+                      <button
+                        className="text-xs font-medium text-brand disabled:opacity-50"
+                        disabled={savingId === t.id}
+                        onClick={() => saveEdit(t.id)}
+                      >
+                        Save
+                      </button>
+                      <button className="text-xs text-muted" onClick={cancelEdit}>
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button className="text-xs font-medium text-brand" onClick={() => startEdit(t)}>
+                      Edit
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

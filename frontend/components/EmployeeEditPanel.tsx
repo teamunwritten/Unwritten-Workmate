@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateEmployee } from "@/lib/api/admin";
-import { Department, Employee } from "@/lib/types";
+import { Department, Employee, EmployeeRole, roleLabel } from "@/lib/types";
 
 export default function EmployeeEditPanel({
   employee,
@@ -119,8 +119,8 @@ export default function EmployeeEditPanel({
         <div>
           <label className="block text-xs font-medium text-muted mb-1.5">Role</label>
           <select className="input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as any })}>
-            {["EMPLOYEE", "MANAGER", "HR_ADMIN"].map((s) => (
-              <option key={s} value={s}>{s}</option>
+            {(["EMPLOYEE", "MANAGER", "HR_ADMIN"] as EmployeeRole[]).map((s) => (
+              <option key={s} value={s}>{roleLabel(s)}</option>
             ))}
           </select>
         </div>

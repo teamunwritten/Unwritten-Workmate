@@ -9,6 +9,7 @@ import {
   LeaveBalance,
   NewHire,
   UpcomingHoliday,
+  roleLabel,
 } from "@/lib/types";
 import BalanceCard from "@/components/BalanceCard";
 import StatusBadge from "@/components/StatusBadge";
@@ -127,7 +128,7 @@ export default async function DashboardPage() {
                   <Avatar name={h.full_name} size={32} pictureUrl={h.picture_url} />
                   <div>
                     <div className="text-sm font-medium">{h.full_name}</div>
-                    <div className="text-xs text-muted">{h.position || h.department_name || h.role.replace("_", " ")}</div>
+                    <div className="text-xs text-muted">{h.position || h.department_name || roleLabel(h.role)}</div>
                   </div>
                 </li>
               ))}

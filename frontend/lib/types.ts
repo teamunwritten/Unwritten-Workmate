@@ -1,4 +1,14 @@
 export type EmployeeRole = "EMPLOYEE" | "MANAGER" | "HR_ADMIN";
+
+const ROLE_LABELS: Record<EmployeeRole, string> = {
+  EMPLOYEE: "Employee",
+  MANAGER: "Manager",
+  HR_ADMIN: "Admin",
+};
+
+export function roleLabel(role: EmployeeRole): string {
+  return ROLE_LABELS[role] ?? role;
+}
 export type EmploymentStatus = "PROBATION" | "ACTIVE" | "NOTICE_PERIOD" | "TERMINATED";
 export type SessionType = "FIRST_HALF" | "SECOND_HALF" | "FULL_DAY";
 export type RequestKind = "LEAVE" | "WFH" | "OD";

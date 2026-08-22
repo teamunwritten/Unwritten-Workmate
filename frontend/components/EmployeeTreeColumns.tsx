@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { EmployeeTreeNode } from "@/lib/types";
+import { EmployeeTreeNode, roleLabel } from "@/lib/types";
 import Avatar from "@/components/Avatar";
 
 const CARD_HEIGHT = 60;
@@ -35,7 +35,7 @@ function PersonCard({
       <div className="min-w-0">
         <div className="text-sm font-semibold text-ink truncate">{node.full_name}</div>
         <div className="text-xs text-muted truncate">
-          {node.position || node.role.replace("_", " ")}
+          {node.position || roleLabel(node.role)}
           {node.department_name ? ` · ${node.department_name}` : ""}
         </div>
       </div>

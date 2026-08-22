@@ -1,4 +1,4 @@
-import { CurrentUser } from "@/lib/types";
+import { CurrentUser, roleLabel } from "@/lib/types";
 import Avatar from "@/components/Avatar";
 
 function StatCircle({ value, label, tone }: { value: number; label: string; tone: "warning" | "success" | "brand" }) {
@@ -30,7 +30,7 @@ export default function ProfileHeader({
             <span className="text-xs text-muted">{user.employee_code}</span>
           </div>
           <div className="text-sm text-muted">
-            {user.position || user.role.replace("_", " ")}
+            {user.position || roleLabel(user.role)}
             {user.department_name ? ` · ${user.department_name}` : ""}
           </div>
           <div className="text-xs text-muted mt-0.5">{user.email}</div>

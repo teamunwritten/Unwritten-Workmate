@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CurrentUser } from "@/lib/types";
+import { CurrentUser, roleLabel } from "@/lib/types";
 import Avatar from "@/components/Avatar";
 import Icon from "@/components/Icon";
 
@@ -66,7 +66,7 @@ export default function ProfilePanel({ open, onClose, user }: { open: boolean; o
             <div className="min-w-0">
               <div className="text-sm font-semibold truncate">Unwritten Workmate</div>
               <div className="text-xs text-muted truncate">
-                {user.position || user.role.replace("_", " ")}
+                {user.position || roleLabel(user.role)}
                 {user.department_name ? ` · ${user.department_name}` : ""}
               </div>
             </div>

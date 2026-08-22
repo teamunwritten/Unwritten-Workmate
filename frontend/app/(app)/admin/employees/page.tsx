@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createEmployee, listDepartments, listEmployees } from "@/lib/api/admin";
-import { Department, Employee } from "@/lib/types";
+import { Department, Employee, EmployeeRole, roleLabel } from "@/lib/types";
 import Avatar from "@/components/Avatar";
 import Icon from "@/components/Icon";
 
@@ -156,8 +156,8 @@ export default function AdminEmployeesPage() {
           </Field>
           <Field label="Role">
             <select className="input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-              {["EMPLOYEE", "MANAGER", "HR_ADMIN"].map((s) => (
-                <option key={s} value={s}>{s}</option>
+              {(["EMPLOYEE", "MANAGER", "HR_ADMIN"] as EmployeeRole[]).map((s) => (
+                <option key={s} value={s}>{roleLabel(s)}</option>
               ))}
             </select>
           </Field>

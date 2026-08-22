@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { CurrentUser } from "@/lib/types";
+import { CurrentUser, roleLabel } from "@/lib/types";
 import Icon from "@/components/Icon";
 import EmployeeSearch from "@/components/EmployeeSearch";
 import Avatar from "@/components/Avatar";
@@ -260,7 +260,7 @@ export default function AppShell({ user, children }: { user: CurrentUser; childr
 
         {!sidebarCollapsed && (
           <div className="px-4 py-3 border-t border-white/10 text-[10.5px] text-sidebar-muted">
-            Signed in as <span className="text-sidebar-text">{user.role.replace("_", " ")}</span>
+            Signed in as <span className="text-sidebar-text">{roleLabel(user.role)}</span>
           </div>
         )}
       </aside>
