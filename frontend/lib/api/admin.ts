@@ -1,5 +1,8 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api/client";
-import { Department, Employee, EmployeeTreeNode, Holiday, LeaveBalance, LeavePolicy, LeaveType, PolicyVersion } from "@/lib/types";
+import { Department, Employee, EmployeeTreeNode, Holiday, LeaveBalance, LeavePolicy, LeaveType, OrgSettings, PolicyVersion } from "@/lib/types";
+
+export const getOrgSettings = () => apiGet<OrgSettings>("/admin/org-settings");
+export const updateOrgSettings = (payload: Partial<OrgSettings>) => apiPatch<OrgSettings>("/admin/org-settings", payload);
 
 export const listDepartments = () => apiGet<Department[]>("/admin/departments");
 

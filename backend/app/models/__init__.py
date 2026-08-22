@@ -10,6 +10,7 @@ from app.models.policy import (
     LeavePolicy,
     LeaveTypeEligibilityRule,
     LeaveTypeRestriction,
+    OrgSettings,
     PolicyVersion,
 )
 from app.models.requests import DayRequest, DayRequestSession, LeaveApplication
@@ -31,6 +32,7 @@ __all__ = [
     "LeavePolicy",
     "LeaveTypeEligibilityRule",
     "LeaveTypeRestriction",
+    "OrgSettings",
     "PolicyVersion",
     "DayRequest",
     "DayRequestSession",

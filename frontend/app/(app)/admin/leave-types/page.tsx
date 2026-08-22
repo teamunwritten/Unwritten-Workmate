@@ -6,12 +6,22 @@ import { LeaveType } from "@/lib/types";
 
 const EMPTY = { code: "", name: "", default_annual_days: 0, accrual_mode: "UPFRONT", allow_lop_conversion: false };
 
+const ACCRUAL_MODES = ["UPFRONT", "MONTHLY", "QUARTERLY"];
+
+type EditForm = {
+  name: string;
+  default_annual_days: string;
+  accrual_mode: string;
+  allow_lop_conversion: boolean;
+  is_active: boolean;
+};
+
 export default function AdminLeaveTypesPage() {
   const [types, setTypes] = useState<LeaveType[]>([]);
   const [form, setForm] = useState<any>(EMPTY);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [editDays, setEditDays] = useState("");
+  const [editForm, setEditForm] = useState<EditForm | null>(null);
   const [savingId, setSavingId] = useState<number | null>(null);
 
   async function load() {
@@ -31,20 +41,33 @@ export default function AdminLeaveTypesPage() {
 
   function startEdit(t: LeaveType) {
     setEditingId(t.id);
-    setEditDays(String(t.default_annual_days));
+    setEditForm({
+      name: t.name,
+      default_annual_days: String(t.default_annual_days),
+      accrual_mode: t.accrual_mode,
+      allow_lop_conversion: t.allow_lop_conversion,
+      is_active: t.is_active,
+    });
   }
 
   function cancelEdit() {
     setEditingId(null);
-    setEditDays("");
+    setEditForm(null);
   }
 
   async function saveEdit(id: number) {
+    if (!editForm) return;
     setSavingId(id);
     try {
-      await updateLeaveType(id, { default_annual_days: Number(editDays) });
+      await updateLeaveType(id, {
+        name: editForm.name,
+        default_annual_days: Number(editForm.default_annual_days),
+        accrual_mode: editForm.accrual_mode,
+        allow_lop_conversion: editForm.allow_lop_conversion,
+        is_active: editForm.is_active,
+      });
       setEditingId(null);
-      setEditDays("");
+      setEditForm(null);
       await load();
     } finally {
       setSavingId(null);
@@ -80,7 +103,7 @@ export default function AdminLeaveTypesPage() {
           <div>
             <label className="block text-xs font-medium text-muted mb-1.5">Accrual mode</label>
             <select className="input" value={form.accrual_mode} onChange={(e) => setForm({ ...form, accrual_mode: e.target.value })}>
-              {["UPFRONT", "MONTHLY", "QUARTERLY"].map((m) => (
+              {ACCRUAL_MODES.map((m) => (
                 <option key={m} value={m}>{m}</option>
               ))}
             </select>
@@ -104,52 +127,105 @@ export default function AdminLeaveTypesPage() {
               <th className="px-5 py-2.5 font-medium">Default days</th>
               <th className="px-5 py-2.5 font-medium">Accrual</th>
               <th className="px-5 py-2.5 font-medium">LOP</th>
+              <th className="px-5 py-2.5 font-medium">Active</th>
               <th className="px-5 py-2.5 font-medium"></th>
             </tr>
           </thead>
           <tbody>
-            {types.map((t) => (
-              <tr key={t.id} className="border-b border-border last:border-0">
-                <td className="px-5 py-3 font-medium">{t.code}</td>
-                <td className="px-5 py-3">{t.name}</td>
-                <td className="px-5 py-3 tabular-nums">
-                  {editingId === t.id ? (
-                    <input
-                      type="number"
-                      step="0.5"
-                      autoFocus
-                      className="input w-20 py-1"
-                      value={editDays}
-                      onChange={(e) => setEditDays(e.target.value)}
-                    />
-                  ) : (
-                    t.default_annual_days
-                  )}
-                </td>
-                <td className="px-5 py-3 text-muted">{t.accrual_mode}</td>
-                <td className="px-5 py-3">{t.allow_lop_conversion ? "Yes" : "No"}</td>
-                <td className="px-5 py-3 text-right">
-                  {editingId === t.id ? (
-                    <div className="flex justify-end gap-2">
-                      <button
-                        className="text-xs font-medium text-brand disabled:opacity-50"
-                        disabled={savingId === t.id}
-                        onClick={() => saveEdit(t.id)}
+            {types.map((t) => {
+              const editing = editingId === t.id && editForm;
+              return (
+                <tr key={t.id} className="border-b border-border last:border-0">
+                  <td className="px-5 py-3 font-medium text-muted">{t.code}</td>
+                  <td className="px-5 py-3">
+                    {editing ? (
+                      <input
+                        className="input py-1"
+                        autoFocus
+                        value={editForm!.name}
+                        onChange={(e) => setEditForm({ ...editForm!, name: e.target.value })}
+                      />
+                    ) : (
+                      t.name
+                    )}
+                  </td>
+                  <td className="px-5 py-3 tabular-nums">
+                    {editing ? (
+                      <input
+                        type="number"
+                        step="0.5"
+                        className="input w-20 py-1"
+                        value={editForm!.default_annual_days}
+                        onChange={(e) => setEditForm({ ...editForm!, default_annual_days: e.target.value })}
+                      />
+                    ) : (
+                      t.default_annual_days
+                    )}
+                  </td>
+                  <td className="px-5 py-3 text-muted">
+                    {editing ? (
+                      <select
+                        className="input py-1"
+                        value={editForm!.accrual_mode}
+                        onChange={(e) => setEditForm({ ...editForm!, accrual_mode: e.target.value })}
                       >
-                        Save
+                        {ACCRUAL_MODES.map((m) => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      t.accrual_mode
+                    )}
+                  </td>
+                  <td className="px-5 py-3">
+                    {editing ? (
+                      <input
+                        type="checkbox"
+                        checked={editForm!.allow_lop_conversion}
+                        onChange={(e) => setEditForm({ ...editForm!, allow_lop_conversion: e.target.checked })}
+                      />
+                    ) : t.allow_lop_conversion ? (
+                      "Yes"
+                    ) : (
+                      "No"
+                    )}
+                  </td>
+                  <td className="px-5 py-3">
+                    {editing ? (
+                      <input
+                        type="checkbox"
+                        checked={editForm!.is_active}
+                        onChange={(e) => setEditForm({ ...editForm!, is_active: e.target.checked })}
+                      />
+                    ) : t.is_active ? (
+                      "Yes"
+                    ) : (
+                      "No"
+                    )}
+                  </td>
+                  <td className="px-5 py-3 text-right">
+                    {editing ? (
+                      <div className="flex justify-end gap-2">
+                        <button
+                          className="text-xs font-medium text-brand disabled:opacity-50"
+                          disabled={savingId === t.id}
+                          onClick={() => saveEdit(t.id)}
+                        >
+                          Save
+                        </button>
+                        <button className="text-xs text-muted" onClick={cancelEdit}>
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button className="text-xs font-medium text-brand" onClick={() => startEdit(t)}>
+                        Edit
                       </button>
-                      <button className="text-xs text-muted" onClick={cancelEdit}>
-                        Cancel
-                      </button>
-                    </div>
-                  ) : (
-                    <button className="text-xs font-medium text-brand" onClick={() => startEdit(t)}>
-                      Edit
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

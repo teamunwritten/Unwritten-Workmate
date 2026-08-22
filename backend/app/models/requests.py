@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     Enum,
     ForeignKey,
+    Integer,
     Numeric,
     String,
     Text,
@@ -91,6 +92,10 @@ class LeaveApplication(Base):
     applied_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     policy_version_id: Mapped[int] = mapped_column(ForeignKey("policy_versions.id"), nullable=False)
     approver_employee_id: Mapped[int | None] = mapped_column(ForeignKey("employees.id"))
+    # 1 = awaiting the direct-manager (or delegate) decision; 2 = manager approved and this has
+    # been escalated to the nearest HR_ADMIN ancestor for final sign-off (only when org_settings
+    # .requires_second_level_approval is on -- see approval_service.record_approval_action).
+    pending_level: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     # Set once the approved leave has been pushed to the employee's Google Calendar, so it can
     # be found again and deleted if the leave is later cancelled.
     google_calendar_event_id: Mapped[str | None] = mapped_column(String(255))

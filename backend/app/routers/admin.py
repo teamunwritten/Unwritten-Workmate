@@ -29,6 +29,8 @@ from app.schemas.admin_policy import (
     LeaveTypeCreate,
     LeaveTypeOut,
     LeaveTypeUpdate,
+    OrgSettingsOut,
+    OrgSettingsUpdate,
     PolicyVersionCreate,
     PolicyVersionOut,
     RestrictionRuleCreate,
@@ -38,9 +40,37 @@ from app.schemas.balance_adjustment import BalanceAdjustmentCreate, BalanceAdjus
 from app.schemas.holidays import HolidayBulkCreate, HolidayCreate, HolidayOut
 from app.services.accrual_service import compute_available_balance
 from app.services.audit_service import write_audit_entry
+from app.services.org_settings_service import get_org_settings
 from app.services.policy_version_service import create_policy_version
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[])
+
+
+# ---------- Org settings ----------
+
+
+@router.get("/org-settings", response_model=OrgSettingsOut)
+def get_org_settings_endpoint(db: DbSession, _: AdminEmployee):
+    return get_org_settings(db)
+
+
+@router.patch("/org-settings", response_model=OrgSettingsOut)
+def update_org_settings(payload: OrgSettingsUpdate, db: DbSession, admin: AdminEmployee):
+    settings = get_org_settings(db)
+    before = {"requires_second_level_approval": settings.requires_second_level_approval}
+    settings.requires_second_level_approval = payload.requires_second_level_approval
+    write_audit_entry(
+        db,
+        "org_settings",
+        settings.id,
+        "ORG_SETTINGS_UPDATED",
+        admin.id,
+        before_value=before,
+        after_value={"requires_second_level_approval": settings.requires_second_level_approval},
+    )
+    db.commit()
+    db.refresh(settings)
+    return settings
 
 
 # ---------- Departments ----------

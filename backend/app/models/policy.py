@@ -18,6 +18,16 @@ from app.database import Base
 from app.enums import EmploymentStatus, RecalculationMode, RestrictionAdjacency, YearEndBehavior, ZeroBalanceAction
 
 
+class OrgSettings(Base):
+    """Singleton row (id is always 1) for org-wide toggles that don't belong to a versioned
+    leave policy -- currently just the two-level approval escalation switch."""
+
+    __tablename__ = "org_settings"
+
+    id: Mapped[int] = mapped_column(primary_key=True, default=1)
+    requires_second_level_approval: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+
 class PolicyVersion(Base):
     __tablename__ = "policy_versions"
 

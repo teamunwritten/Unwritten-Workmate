@@ -2,11 +2,12 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from app.enums import ApprovalActionType, DayRequestStatus, RequestKind, ResolutionType
+from app.enums import ApprovalActionType, DayRequestStatus, EmployeeRole, RequestKind, ResolutionType
 from app.models import ApprovalAction, DayRequest, Employee, EmployeeLeaveBalance, LeaveApplication
 from app.services import google_calendar_service
 from app.services.audit_service import write_audit_entry
 from app.services.delegation_service import find_active_delegate, manager_is_on_leave
+from app.services.org_settings_service import get_org_settings
 
 
 def resolve_approver(db: Session, employee: Employee, on_date: date) -> int | None:
@@ -19,6 +20,25 @@ def resolve_approver(db: Session, employee: Employee, on_date: date) -> int | No
         if delegate_id is not None:
             return delegate_id
     return employee.manager_id
+
+
+def resolve_level2_approver(db: Session, level1_approver_id: int) -> int | None:
+    """Walks the org chart above the level-1 approver looking for the nearest HR_ADMIN ancestor
+    (HR_ADMIN employees always have manager_id=None, so this is a bounded walk). Returns None if
+    the level-1 approver has no manager chain at all, or is already the top of it -- in either
+    case there's nobody left to escalate to, so the level-1 decision stays final."""
+    cursor_id = level1_approver_id
+    for _ in range(1000):  # generous bound; a real org chart is never this deep
+        cursor = db.get(Employee, cursor_id)
+        if cursor is None or cursor.manager_id is None:
+            return None
+        manager = db.get(Employee, cursor.manager_id)
+        if manager is None:
+            return None
+        if manager.role == EmployeeRole.HR_ADMIN:
+            return manager.id
+        cursor_id = manager.id
+    return None
 
 
 def finalize_approval(db: Session, leave_application: LeaveApplication, day_request: DayRequest) -> None:
@@ -64,32 +84,49 @@ def record_approval_action(
     action: ApprovalActionType,
     comment: str | None,
 ) -> ApprovalAction:
-    approval_action = ApprovalAction(
-        leave_application_id=leave_application.id,
-        actor_employee_id=actor_employee_id,
-        action=action,
-        comment=comment,
-    )
-    db.add(approval_action)
-
+    """Records one approve/reject decision. An APPROVED decision at level 1 only finalizes the
+    request if org_settings.requires_second_level_approval is off, or no HR_ADMIN ancestor exists
+    to escalate to -- otherwise it's recorded as ESCALATED and reassigned to that admin instead,
+    leaving the request PENDING for their decision. A REJECTED decision always finalizes
+    immediately, at either level -- rejection is never overridable by a later escalation."""
     before_resolution = leave_application.resolution_type
     day_request = db.get(DayRequest, leave_application.day_request_id)
 
+    recorded_action = action
     if action == ApprovalActionType.APPROVED:
-        leave_application.resolution_type = ResolutionType.APPROVED
-        day_request.status = DayRequestStatus.APPROVED
-        finalize_approval(db, leave_application, day_request)
+        escalate_to = None
+        if leave_application.pending_level == 1 and get_org_settings(db).requires_second_level_approval:
+            candidate = resolve_level2_approver(db, actor_employee_id)
+            if candidate is not None and candidate != actor_employee_id:
+                escalate_to = candidate
+
+        if escalate_to is not None:
+            recorded_action = ApprovalActionType.ESCALATED
+            leave_application.approver_employee_id = escalate_to
+            leave_application.pending_level = 2
+        else:
+            leave_application.resolution_type = ResolutionType.APPROVED
+            day_request.status = DayRequestStatus.APPROVED
+            finalize_approval(db, leave_application, day_request)
     elif action == ApprovalActionType.REJECTED:
         leave_application.resolution_type = ResolutionType.BLOCKED
         day_request.status = DayRequestStatus.REJECTED
         for session in day_request.sessions:
             session.is_active = False
 
+    approval_action = ApprovalAction(
+        leave_application_id=leave_application.id,
+        actor_employee_id=actor_employee_id,
+        action=recorded_action,
+        comment=comment,
+    )
+    db.add(approval_action)
+
     write_audit_entry(
         db,
         entity_type="leave_application",
         entity_id=leave_application.id,
-        action=f"APPROVAL_{action.value}",
+        action=f"APPROVAL_{recorded_action.value}",
         actor_employee_id=actor_employee_id,
         before_value={"resolution_type": before_resolution.value},
         after_value={"resolution_type": leave_application.resolution_type.value},

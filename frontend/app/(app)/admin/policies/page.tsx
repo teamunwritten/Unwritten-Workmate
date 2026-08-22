@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createPolicyVersion, listLeavePolicies, listLeaveTypes, listPolicyVersions, updateLeavePolicy } from "@/lib/api/admin";
-import { LeavePolicy, LeaveType, PolicyVersion } from "@/lib/types";
+import { createPolicyVersion, getOrgSettings, listLeavePolicies, listLeaveTypes, listPolicyVersions, updateLeavePolicy, updateOrgSettings } from "@/lib/api/admin";
+import { LeavePolicy, LeaveType, OrgSettings, PolicyVersion } from "@/lib/types";
 
 export default function AdminPoliciesPage() {
   const [versions, setVersions] = useState<PolicyVersion[]>([]);
@@ -10,6 +10,8 @@ export default function AdminPoliciesPage() {
   const [policies, setPolicies] = useState<LeavePolicy[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [showNewVersion, setShowNewVersion] = useState(false);
+  const [orgSettings, setOrgSettings] = useState<OrgSettings | null>(null);
+  const [savingOrgSettings, setSavingOrgSettings] = useState(false);
   const [newVersion, setNewVersion] = useState({
     version_label: "",
     effective_from: "",
@@ -26,11 +28,21 @@ export default function AdminPoliciesPage() {
   useEffect(() => {
     loadVersions();
     listLeaveTypes().then(setLeaveTypes);
+    getOrgSettings().then(setOrgSettings);
   }, []);
 
   useEffect(() => {
     if (selectedVersion) listLeavePolicies(selectedVersion).then(setPolicies);
   }, [selectedVersion]);
+
+  async function handleToggleSecondLevel(checked: boolean) {
+    setSavingOrgSettings(true);
+    try {
+      setOrgSettings(await updateOrgSettings({ requires_second_level_approval: checked }));
+    } finally {
+      setSavingOrgSettings(false);
+    }
+  }
 
   async function handleCreateVersion(e: React.FormEvent) {
     e.preventDefault();
@@ -69,6 +81,28 @@ export default function AdminPoliciesPage() {
           </button>
         </div>
       </div>
+
+      {orgSettings && (
+        <div className="card p-5 flex items-center justify-between gap-4">
+          <div>
+            <div className="text-sm font-semibold">Two-level approval</div>
+            <p className="text-sm text-muted mt-0.5">
+              When on, an employee&apos;s direct manager approving a leave request escalates it to the nearest
+              Admin above them for final sign-off, instead of finalizing it immediately. A rejection at either
+              level ends the request. Applies org-wide to every leave type.
+            </p>
+          </div>
+          <label className="flex items-center gap-2 text-sm shrink-0">
+            <input
+              type="checkbox"
+              disabled={savingOrgSettings}
+              checked={orgSettings.requires_second_level_approval}
+              onChange={(e) => handleToggleSecondLevel(e.target.checked)}
+            />
+            Require second-level approval
+          </label>
+        </div>
+      )}
 
       {showNewVersion && (
         <form onSubmit={handleCreateVersion} className="card p-5 grid grid-cols-2 gap-4">

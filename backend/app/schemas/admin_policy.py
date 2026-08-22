@@ -41,6 +41,16 @@ class LeaveTypeOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class OrgSettingsUpdate(BaseModel):
+    requires_second_level_approval: bool
+
+
+class OrgSettingsOut(BaseModel):
+    requires_second_level_approval: bool
+
+    model_config = {"from_attributes": True}
+
+
 class PolicyVersionCreate(BaseModel):
     version_label: str
     effective_from: date

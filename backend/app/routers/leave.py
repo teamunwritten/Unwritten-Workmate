@@ -308,11 +308,25 @@ def approve_application(
 ):
     application, day_request = _get_owned_application(db, current, application_id)
     _require_can_approve(application, current)
-    record_approval_action(db, application, current.id, ApprovalActionType.APPROVED, payload.comment)
+    approval_action = record_approval_action(db, application, current.id, ApprovalActionType.APPROVED, payload.comment)
     db.commit()
     db.refresh(application)
     db.refresh(day_request)
     leave_type = db.get(LeaveType, application.leave_type_id)
+
+    if approval_action.action == ApprovalActionType.ESCALATED and application.approver_employee_id and leave_type:
+        next_approver = db.get(Employee, application.approver_employee_id)
+        applicant = db.get(Employee, day_request.employee_id)
+        if next_approver and applicant:
+            try:
+                send_leave_applied_email(db, next_approver, applicant, application, day_request, leave_type)
+            except Exception:  # noqa: BLE001 -- email delivery must never break the approval itself
+                pass
+            try:
+                notify_leave_applied(applicant, next_approver, application, day_request, leave_type)
+            except Exception:  # noqa: BLE001 -- Slack delivery must never break the approval itself
+                pass
+
     return _to_read_model(db, application, day_request, leave_type.code if leave_type else None)
 
 

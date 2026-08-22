@@ -250,3 +250,7 @@ export interface LeavePolicy {
   zero_balance_action: string;
   sandwich_policy_enabled: boolean;
 }
+
+export interface OrgSettings {
+  requires_second_level_approval: boolean;
+}
