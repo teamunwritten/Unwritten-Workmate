@@ -21,6 +21,42 @@ def resolve_approver(db: Session, employee: Employee, on_date: date) -> int | No
     return employee.manager_id
 
 
+def finalize_approval(db: Session, leave_application: LeaveApplication, day_request: DayRequest) -> None:
+    """Applies the balance deduction and calendar sync side effects of an APPROVED resolution.
+    Shared by the manager-approval path (record_approval_action) and the HR_ADMIN auto-approve
+    path (day_request_service.create_leave_application), which never goes through an approver.
+    """
+    if not leave_application.is_lop:
+        balance = (
+            db.query(EmployeeLeaveBalance)
+            .filter(
+                EmployeeLeaveBalance.employee_id == day_request.employee_id,
+                EmployeeLeaveBalance.leave_type_id == leave_application.leave_type_id,
+                EmployeeLeaveBalance.year == day_request.start_date.year,
+            )
+            .first()
+        )
+        if balance is not None:
+            balance.used_days = float(balance.used_days) + float(leave_application.total_deducted_days)
+
+    if day_request.request_kind == RequestKind.LEAVE:
+        employee = db.get(Employee, day_request.employee_id)
+        try:
+            event_id = google_calendar_service.create_leave_event(employee, day_request.start_date, day_request.end_date)
+        except Exception:  # noqa: BLE001 -- calendar sync must never break the approval itself
+            event_id = None
+        if event_id:
+            leave_application.google_calendar_event_id = event_id
+            write_audit_entry(
+                db,
+                entity_type="leave_application",
+                entity_id=leave_application.id,
+                action="GOOGLE_CALENDAR_SYNCED",
+                actor_employee_id=None,
+                after_value={"google_calendar_event_id": event_id},
+            )
+
+
 def record_approval_action(
     db: Session,
     leave_application: LeaveApplication,
@@ -42,35 +78,7 @@ def record_approval_action(
     if action == ApprovalActionType.APPROVED:
         leave_application.resolution_type = ResolutionType.APPROVED
         day_request.status = DayRequestStatus.APPROVED
-        if not leave_application.is_lop:
-            balance = (
-                db.query(EmployeeLeaveBalance)
-                .filter(
-                    EmployeeLeaveBalance.employee_id == day_request.employee_id,
-                    EmployeeLeaveBalance.leave_type_id == leave_application.leave_type_id,
-                    EmployeeLeaveBalance.year == day_request.start_date.year,
-                )
-                .first()
-            )
-            if balance is not None:
-                balance.used_days = float(balance.used_days) + float(leave_application.total_deducted_days)
-
-        if day_request.request_kind == RequestKind.LEAVE:
-            employee = db.get(Employee, day_request.employee_id)
-            try:
-                event_id = google_calendar_service.create_leave_event(employee, day_request.start_date, day_request.end_date)
-            except Exception:  # noqa: BLE001 -- calendar sync must never break the approval itself
-                event_id = None
-            if event_id:
-                leave_application.google_calendar_event_id = event_id
-                write_audit_entry(
-                    db,
-                    entity_type="leave_application",
-                    entity_id=leave_application.id,
-                    action="GOOGLE_CALENDAR_SYNCED",
-                    actor_employee_id=None,
-                    after_value={"google_calendar_event_id": event_id},
-                )
+        finalize_approval(db, leave_application, day_request)
     elif action == ApprovalActionType.REJECTED:
         leave_application.resolution_type = ResolutionType.BLOCKED
         day_request.status = DayRequestStatus.REJECTED

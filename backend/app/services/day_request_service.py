@@ -3,10 +3,10 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.enums import CheckOutcome, DayRequestStatus, RequestKind, ResolutionType, SessionType
+from app.enums import CheckOutcome, DayRequestStatus, EmployeeRole, RequestKind, ResolutionType, SessionType
 from app.models import DayRequest, DayRequestSession, Employee, LeaveApplication
 from app.schemas.leave import SessionInput
-from app.services.approval_service import resolve_approver
+from app.services.approval_service import finalize_approval, resolve_approver
 from app.services.audit_service import write_audit_entry
 from app.services.validation_engine.results import ValidationDecision
 
@@ -69,9 +69,15 @@ def create_leave_application(
         )
 
     applied_days = sum(DAY_VALUE[s.session] for s in decision.working_sessions)
-    resolution_type = ResolutionType.LOP_CONVERTED if decision.is_lop else ResolutionType.PENDING_APPROVAL
-
-    approver_id = resolve_approver(db, employee, dates[0])
+    # HR_ADMIN leave needs no approval -- it's auto-approved and other admins are notified
+    # (informationally, in the router) instead of routing to a manager.
+    is_self_approving_admin = employee.role == EmployeeRole.HR_ADMIN
+    if is_self_approving_admin:
+        resolution_type = ResolutionType.LOP_CONVERTED if decision.is_lop else ResolutionType.APPROVED
+        approver_id = None
+    else:
+        resolution_type = ResolutionType.LOP_CONVERTED if decision.is_lop else ResolutionType.PENDING_APPROVAL
+        approver_id = resolve_approver(db, employee, dates[0])
 
     leave_application = LeaveApplication(
         day_request_id=day_request.id,
@@ -88,6 +94,11 @@ def create_leave_application(
     )
     db.add(leave_application)
     db.flush()
+
+    if is_self_approving_admin:
+        # finalize_approval itself skips the balance deduction when is_lop is True.
+        day_request.status = DayRequestStatus.APPROVED
+        finalize_approval(db, leave_application, day_request)
 
     # One audit row per non-PASS check result, so every violation considered is traceable.
     for result in decision.violations:

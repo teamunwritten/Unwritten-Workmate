@@ -19,8 +19,8 @@ from app.schemas.leave import (
 from app.services.accrual_service import compute_available_balance
 from app.services.approval_service import cancel_leave_application, record_approval_action
 from app.services.day_request_service import create_leave_application
-from app.services.email_service import send_leave_applied_email, send_leave_cancelled_email
-from app.services.slack_service import notify_leave_applied, notify_leave_cancelled
+from app.services.email_service import send_leave_admin_notice_email, send_leave_applied_email, send_leave_cancelled_email
+from app.services.slack_service import notify_leave_admin_notice, notify_leave_applied, notify_leave_cancelled
 from app.services.validation_engine.orchestrator import validate_leave_application
 
 router = APIRouter(prefix="/leave", tags=["leave"])
@@ -120,7 +120,27 @@ def create_application(payload: LeaveApplicationCreate, db: DbSession, current: 
     leave_type = db.get(LeaveType, application.leave_type_id)
     day_request = db.get(DayRequest, application.day_request_id)
 
-    if application.approver_employee_id and leave_type:
+    if current.role == EmployeeRole.HR_ADMIN and leave_type:
+        # No approver -- HR_ADMIN leave is auto-approved. Notify every other active admin instead,
+        # informationally (no Approve/Reject action on these).
+        other_admins = db.execute(
+            select(Employee).where(
+                Employee.role == EmployeeRole.HR_ADMIN,
+                Employee.id != current.id,
+                Employee.is_active.is_(True),
+            )
+        ).scalars().all()
+        for admin in other_admins:
+            try:
+                send_leave_admin_notice_email(db, admin, current, application, day_request, leave_type)
+            except Exception:  # noqa: BLE001 -- email delivery must never break the application itself
+                pass
+        if other_admins:
+            try:
+                notify_leave_admin_notice(current, application, day_request, leave_type)
+            except Exception:  # noqa: BLE001 -- Slack delivery must never break the application itself
+                pass
+    elif application.approver_employee_id and leave_type:
         approver = db.get(Employee, application.approver_employee_id)
         if approver:
             try:

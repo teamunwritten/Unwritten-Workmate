@@ -53,7 +53,7 @@ export default function EmployeeEditPanel({
         emergency_contact_name: form.emergency_contact_name.trim() || null,
         emergency_contact_phone: form.emergency_contact_phone.trim() || null,
         department_id: Number(form.department_id),
-        manager_id: form.manager_id ? Number(form.manager_id) : null,
+        manager_id: form.role === "HR_ADMIN" || !form.manager_id ? null : Number(form.manager_id),
         employment_status: form.employment_status,
         role: form.role,
         notice_period_start: form.notice_period_start || null,
@@ -97,8 +97,13 @@ export default function EmployeeEditPanel({
         </div>
         <div>
           <label className="block text-xs font-medium text-muted mb-1.5">Manager</label>
-          <select className="input" value={form.manager_id} onChange={(e) => setForm({ ...form, manager_id: e.target.value })}>
-            <option value="">No manager</option>
+          <select
+            className="input"
+            disabled={form.role === "HR_ADMIN"}
+            value={form.role === "HR_ADMIN" ? "" : form.manager_id}
+            onChange={(e) => setForm({ ...form, manager_id: e.target.value })}
+          >
+            <option value="">{form.role === "HR_ADMIN" ? "Admins have no manager" : "No manager"}</option>
             {managers.filter((m) => m.id !== employee.id).map((m) => (
               <option key={m.id} value={m.id}>{m.full_name}</option>
             ))}
@@ -118,7 +123,14 @@ export default function EmployeeEditPanel({
         </div>
         <div>
           <label className="block text-xs font-medium text-muted mb-1.5">Role</label>
-          <select className="input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as any })}>
+          <select
+            className="input"
+            value={form.role}
+            onChange={(e) => {
+              const role = e.target.value as EmployeeRole;
+              setForm({ ...form, role, manager_id: role === "HR_ADMIN" ? "" : form.manager_id });
+            }}
+          >
             {(["EMPLOYEE", "MANAGER", "HR_ADMIN"] as EmployeeRole[]).map((s) => (
               <option key={s} value={s}>{roleLabel(s)}</option>
             ))}

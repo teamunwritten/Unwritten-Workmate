@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 
 from app.deps import AdminEmployee, CurrentEmployee, DbSession
+from app.enums import EmployeeRole
 from app.models import (
     BalanceAdjustment,
     Department,
@@ -189,8 +190,11 @@ def create_employee(payload: EmployeeCreate, db: DbSession, admin: AdminEmployee
     if db.execute(select(Employee).where(Employee.email == payload.email)).scalars().first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already in use")
     _validate_department_exists(db, payload.department_id)
-    if payload.manager_id is not None:
-        _validate_manager(db, payload.manager_id, employee_id=None)
+    # Admins sit outside the reporting chain -- no manager, and their own leave is auto-approved
+    # rather than routed to one (see day_request_service.create_leave_application).
+    manager_id = None if payload.role == EmployeeRole.HR_ADMIN else payload.manager_id
+    if manager_id is not None:
+        _validate_manager(db, manager_id, employee_id=None)
 
     employee = Employee(
         employee_code=payload.employee_code,
@@ -203,7 +207,7 @@ def create_employee(payload: EmployeeCreate, db: DbSession, admin: AdminEmployee
         emergency_contact_name=payload.emergency_contact_name,
         emergency_contact_phone=payload.emergency_contact_phone,
         department_id=payload.department_id,
-        manager_id=payload.manager_id,
+        manager_id=manager_id,
         date_of_joining=payload.date_of_joining,
         date_of_birth=payload.date_of_birth,
         employment_status=payload.employment_status,
@@ -233,7 +237,13 @@ def update_employee(employee_id: int, payload: EmployeeUpdate, db: DbSession, ad
 
     if "department_id" in updates:
         _validate_department_exists(db, updates["department_id"])
-    if "manager_id" in updates and updates["manager_id"] is not None:
+
+    resulting_role = updates.get("role", employee.role)
+    if resulting_role == EmployeeRole.HR_ADMIN:
+        # Admins sit outside the reporting chain -- clear/ignore any manager_id, whether it's
+        # newly submitted here or was already set before this employee became an admin.
+        updates["manager_id"] = None
+    elif "manager_id" in updates and updates["manager_id"] is not None:
         _validate_manager(db, updates["manager_id"], employee_id=employee_id)
 
     before = {"employment_status": employee.employment_status.value, "role": employee.role.value}

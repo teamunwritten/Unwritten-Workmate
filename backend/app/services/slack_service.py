@@ -88,6 +88,35 @@ def notify_leave_applied(
     _post(text, blocks)
 
 
+def notify_leave_admin_notice(
+    applicant: Employee,
+    application: LeaveApplication,
+    day_request: DayRequest,
+    leave_type: LeaveType,
+) -> None:
+    """Informational-only notice posted once per admin-leave application (no per-recipient
+    Approve/Reject buttons, since HR_ADMIN leave is auto-approved and has no approver)."""
+    text = f"{applicant.full_name} is on leave — auto-approved, no action needed"
+    blocks = [
+        {"type": "header", "text": {"type": "plain_text", "text": "🗓️ Admin Leave (auto-approved)", "emoji": True}},
+        {
+            "type": "section",
+            "fields": [
+                {"type": "mrkdwn", "text": f"*Employee*\n{applicant.full_name} ({applicant.employee_code})"},
+                {"type": "mrkdwn", "text": f"*Leave Type*\n{leave_type.name}"},
+                {"type": "mrkdwn", "text": f"*Duration*\n{_duration_text(day_request, application)}"},
+            ],
+        },
+        {
+            "type": "context",
+            "elements": [{"type": "mrkdwn", "text": f"<{settings.app_base_url}/leave/history|View in portal>"}],
+        },
+    ]
+    if application.reason:
+        blocks.insert(2, {"type": "section", "text": {"type": "mrkdwn", "text": f"*Reason*\n{application.reason}"}})
+    _post(text, blocks)
+
+
 def notify_leave_cancelled(
     applicant: Employee,
     approver: Employee,

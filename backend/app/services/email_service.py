@@ -117,6 +117,34 @@ def send_leave_applied_email(
     )
 
 
+def send_leave_admin_notice_email(
+    db: Session,
+    recipient: Employee,
+    applicant: Employee,
+    application: LeaveApplication,
+    day_request: DayRequest,
+    leave_type: LeaveType,
+) -> None:
+    """Informational-only notice to a fellow admin: HR_ADMIN leave is auto-approved (no
+    approver), so there are no Approve/Decline buttons here -- unlike send_leave_applied_email.
+    """
+    history_url = f"{settings.app_base_url}/leave/history"
+    html = render_leave_notification_email(
+        request_id=application.id,
+        title="Admin Leave Notice",
+        intro_html=f"{applicant.full_name} has taken leave. Admin leave is auto-approved and does not require action.",
+        status="APPROVED",
+        rows=_common_rows(db, applicant, application, day_request, leave_type),
+        action=EmailAction(buttons=[], footer_link_url=history_url, footer_link_label="Workforce Portal dashboard"),
+    )
+    _send(
+        to_email=recipient.email,
+        cc_email=None,
+        subject=f"{applicant.full_name} is on leave — {leave_type.name}",
+        html=html,
+    )
+
+
 def send_leave_cancelled_email(
     db: Session,
     approver: Employee,

@@ -73,7 +73,7 @@ export default function AdminEmployeesPage() {
         emergency_contact_name: form.emergency_contact_name.trim() || null,
         emergency_contact_phone: form.emergency_contact_phone.trim() || null,
         department_id: Number(form.department_id),
-        manager_id: form.manager_id ? Number(form.manager_id) : null,
+        manager_id: form.role === "HR_ADMIN" || !form.manager_id ? null : Number(form.manager_id),
         date_of_birth: form.date_of_birth || null,
       });
       setForm(EMPTY_FORM);
@@ -134,8 +134,13 @@ export default function AdminEmployeesPage() {
             </select>
           </Field>
           <Field label="Manager (optional)">
-            <select className="input" value={form.manager_id} onChange={(e) => setForm({ ...form, manager_id: e.target.value })}>
-              <option value="">No manager</option>
+            <select
+              className="input"
+              disabled={form.role === "HR_ADMIN"}
+              value={form.role === "HR_ADMIN" ? "" : form.manager_id}
+              onChange={(e) => setForm({ ...form, manager_id: e.target.value })}
+            >
+              <option value="">{form.role === "HR_ADMIN" ? "Admins have no manager" : "No manager"}</option>
               {employees.map((e) => (
                 <option key={e.id} value={e.id}>{e.full_name}</option>
               ))}
@@ -155,7 +160,14 @@ export default function AdminEmployeesPage() {
             </select>
           </Field>
           <Field label="Role">
-            <select className="input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
+            <select
+              className="input"
+              value={form.role}
+              onChange={(e) => {
+                const role = e.target.value as EmployeeRole;
+                setForm({ ...form, role, manager_id: role === "HR_ADMIN" ? "" : form.manager_id });
+              }}
+            >
               {(["EMPLOYEE", "MANAGER", "HR_ADMIN"] as EmployeeRole[]).map((s) => (
                 <option key={s} value={s}>{roleLabel(s)}</option>
               ))}
