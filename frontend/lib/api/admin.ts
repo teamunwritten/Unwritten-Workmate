@@ -1,5 +1,17 @@
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api/client";
-import { Department, Employee, EmployeeTreeNode, Holiday, LeaveBalance, LeavePolicy, LeaveType, OrgSettings, PolicyVersion } from "@/lib/types";
+import { pageQueryString, PageQuery } from "@/lib/api/query";
+import {
+  Department,
+  Employee,
+  EmployeeTreeNode,
+  Holiday,
+  LeaveBalance,
+  LeavePolicy,
+  LeaveType,
+  OrgSettings,
+  Paginated,
+  PolicyVersion,
+} from "@/lib/types";
 
 export const getOrgSettings = () => apiGet<OrgSettings>("/admin/org-settings");
 export const updateOrgSettings = (payload: Partial<OrgSettings>) => apiPatch<OrgSettings>("/admin/org-settings", payload);
@@ -7,6 +19,10 @@ export const updateOrgSettings = (payload: Partial<OrgSettings>) => apiPatch<Org
 export const listDepartments = () => apiGet<Department[]>("/admin/departments");
 
 export const listEmployees = () => apiGet<Employee[]>("/admin/employees");
+export const listEmployeeDirectory = (params: PageQuery) =>
+  apiGet<Paginated<Employee>>(`/admin/employees/directory${pageQueryString(params)}`);
+export const bulkSetEmployeeStatus = (employee_ids: number[], is_active: boolean) =>
+  apiPatch<{ updated: number }>("/admin/employees/bulk-status", { employee_ids, is_active });
 export const getEmployee = (id: number) => apiGet<Employee>(`/admin/employees/${id}`);
 export const getEmployeeBalances = (id: number) => apiGet<LeaveBalance[]>(`/admin/employees/${id}/balances`);
 export const createEmployee = (payload: Record<string, unknown>) => apiPost<Employee>("/admin/employees", payload);

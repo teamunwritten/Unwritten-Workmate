@@ -53,6 +53,11 @@ class LeaveApplicationRead(BaseModel):
     approver_employee_id: int | None = None
     approver_name: str | None = None
     approver_picture_url: str | None = None
+    pending_level: int | None = None
+    employee_id: int | None = None
+    employee_name: str | None = None
+    employee_code: str | None = None
+    employee_picture_url: str | None = None
     approval_history: list[ApprovalActionOut] = []
 
     model_config = {"from_attributes": True}

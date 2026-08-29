@@ -1,3 +1,10 @@
+export interface Paginated<T> {
+  items: T[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
 export type EmployeeRole = "EMPLOYEE" | "MANAGER" | "HR_ADMIN";
 
 const ROLE_LABELS: Record<EmployeeRole, string> = {
@@ -134,6 +141,11 @@ export interface LeaveApplication {
   approver_employee_id: number | null;
   approver_name?: string | null;
   approver_picture_url?: string | null;
+  pending_level?: number | null;
+  employee_id?: number | null;
+  employee_name?: string | null;
+  employee_code?: string | null;
+  employee_picture_url?: string | null;
   approval_history?: ApprovalActionEntry[];
 }
 

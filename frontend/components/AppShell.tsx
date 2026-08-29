@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { CurrentUser, roleLabel } from "@/lib/types";
 import Icon from "@/components/Icon";
@@ -9,9 +8,13 @@ import EmployeeSearch from "@/components/EmployeeSearch";
 import Avatar from "@/components/Avatar";
 import NotificationsPanel, { NotificationItem } from "@/components/NotificationsPanel";
 import ProfilePanel from "@/components/ProfilePanel";
+import NavLink from "@/components/NavLink";
+import CollapsibleSection from "@/components/CollapsibleSection";
+import Breadcrumbs from "@/components/Breadcrumbs";
 import { deleteAnnouncement, listAnnouncements } from "@/lib/api/dashboard";
 import { listPendingApprovals } from "@/lib/api/leave";
 import { emitAnnouncementRemoved, onAnnouncementRemoved } from "@/lib/announcementEvents";
+import { NAV_ITEMS, ADMIN_ITEMS } from "@/lib/navigation";
 
 function loadDismissed(userId: number): Set<string> {
   if (typeof window === "undefined") return new Set();
@@ -34,71 +37,9 @@ function loadSidebarCollapsed(): boolean {
   return raw === null ? true : raw === "true";
 }
 
-const NAV_ITEMS: { href: string; label: string; icon: string; roles?: string[] }[] = [
-  { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
-  { href: "/leave/history", label: "Leaves", icon: "apply" },
-  { href: "/approvals", label: "Approvals", icon: "approvals", roles: ["MANAGER", "HR_ADMIN"] },
-  { href: "/calendar", label: "Team Calendar", icon: "calendar" },
-  { href: "/files", label: "Files", icon: "folder" },
-];
-
-const ADMIN_ITEMS: { href: string; label: string; icon: string }[] = [
-  { href: "/admin/employees", label: "Employees", icon: "employees" },
-  { href: "/admin/employees/tree", label: "Org Chart", icon: "tree" },
-  { href: "/admin/leave-types", label: "Leave Types", icon: "leaveType" },
-  { href: "/admin/policies", label: "Policies", icon: "policy" },
-  { href: "/admin/holidays", label: "Holidays", icon: "holiday" },
-  { href: "/admin/restrictions", label: "Restrictions", icon: "restriction" },
-  { href: "/admin/balance-adjustments", label: "Balance Adjustments", icon: "adjustment" },
-];
-
-function NavLink({
-  href,
-  label,
-  icon,
-  active,
-  collapsed,
-}: {
-  href: string;
-  label: string;
-  icon: string;
-  active: boolean;
-  collapsed?: boolean;
-}) {
-  if (collapsed) {
-    return (
-      <Link href={href} title={label} className="flex flex-col items-center gap-1.5 py-1.5 group">
-        <div
-          className={`h-11 w-11 rounded-xl flex items-center justify-center transition-colors ${
-            active ? "bg-sidebar-active text-white" : "bg-white/5 text-sidebar-text group-hover:bg-sidebar-raised"
-          }`}
-        >
-          <Icon name={icon as any} className="h-5 w-5 shrink-0" />
-        </div>
-        <span className={`text-[10.5px] leading-tight text-center truncate w-full px-0.5 ${active ? "text-white" : "text-sidebar-muted"}`}>
-          {label}
-        </span>
-      </Link>
-    );
-  }
-
-  return (
-    <Link
-      href={href}
-      className={`flex items-center gap-3 rounded-md px-3 py-2 text-[13px] font-medium transition-colors ${
-        active ? "bg-sidebar-active text-white" : "text-sidebar-text hover:bg-sidebar-raised"
-      }`}
-    >
-      <Icon name={icon as any} className="h-[17px] w-[17px] shrink-0" />
-      <span className="truncate">{label}</span>
-    </Link>
-  );
-}
-
 export default function AppShell({ user, children }: { user: CurrentUser; children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [adminOpen, setAdminOpen] = useState(pathname?.startsWith("/admin") ?? false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [appsMenuOpen, setAppsMenuOpen] = useState(false);
@@ -120,15 +61,6 @@ export default function AppShell({ user, children }: { user: CurrentUser; childr
       window.localStorage.setItem("sidebar_collapsed", String(next));
       return next;
     });
-  }
-
-  function handleAdminNavClick() {
-    if (sidebarCollapsed) {
-      toggleSidebar();
-      setAdminOpen(true);
-    } else {
-      setAdminOpen((v) => !v);
-    }
   }
 
   useEffect(() => {
@@ -217,34 +149,16 @@ export default function AppShell({ user, children }: { user: CurrentUser; childr
             );
           })}
 
-          {user.role === "HR_ADMIN" &&
-            (sidebarCollapsed ? (
-              <button onClick={handleAdminNavClick} title="Admin" className="flex flex-col items-center gap-1.5 py-1.5 w-full group">
-                <div className="h-11 w-11 rounded-xl flex items-center justify-center bg-white/5 text-sidebar-text group-hover:bg-sidebar-raised transition-colors">
-                  <Icon name="admin" className="h-5 w-5 shrink-0" />
-                </div>
-                <span className="text-[10.5px] leading-tight text-center truncate w-full px-0.5 text-sidebar-muted">Admin</span>
-              </button>
-            ) : (
-              <div className="pt-2">
-                <button
-                  onClick={handleAdminNavClick}
-                  className="w-full flex items-center gap-3 rounded-md px-3 py-2 text-[13px] font-medium text-sidebar-text hover:bg-sidebar-raised"
-                >
-                  <Icon name="admin" className="h-[17px] w-[17px] shrink-0" />
-                  <span className="flex-1 text-left">Admin</span>
-                  <Icon name={adminOpen ? "chevronDown" : "chevronRight"} className="h-3.5 w-3.5 text-sidebar-muted" />
-                </button>
-                {adminOpen && (
-                  <div className="mt-0.5 ml-2 pl-3.5 border-l border-white/10 space-y-0.5">
-                    {ADMIN_ITEMS.map((item) => {
-                      const active = pathname === item.href || (pathname?.startsWith(item.href + "/") ?? false);
-                      return <NavLink key={item.href} href={item.href} label={item.label} icon={item.icon} active={active} />;
-                    })}
-                  </div>
-                )}
-              </div>
-            ))}
+          {user.role === "HR_ADMIN" && (
+            <CollapsibleSection
+              title="Admin"
+              icon="admin"
+              items={ADMIN_ITEMS}
+              storageKey="nav_section_admin_open"
+              sidebarCollapsed={sidebarCollapsed}
+              onNavigate={toggleSidebar}
+            />
+          )}
         </nav>
 
         <button
@@ -324,6 +238,11 @@ export default function AppShell({ user, children }: { user: CurrentUser; childr
             </button>
           </div>
         </header>
+        {pathname !== "/dashboard" && (
+          <div className="h-9 border-b border-border bg-surface flex items-center px-5">
+            <Breadcrumbs />
+          </div>
+        )}
         <main className="flex-1 overflow-y-auto p-6 bg-canvas">{children}</main>
       </div>
 

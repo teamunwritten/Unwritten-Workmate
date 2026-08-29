@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getEmployeeTree, listDepartments, listEmployees } from "@/lib/api/admin";
-import { Department, Employee, EmployeeTreeNode } from "@/lib/types";
+import { getEmployeeTree, listDepartments } from "@/lib/api/admin";
+import { Department, EmployeeTreeNode } from "@/lib/types";
 import EmployeeTreeColumns from "@/components/EmployeeTreeColumns";
 import DepartmentTree from "@/components/DepartmentTree";
 
@@ -13,25 +13,35 @@ export default function OrgChartPage() {
   const [activeTab, setActiveTab] = useState<Tab>("Employee Tree");
   const [roots, setRoots] = useState<EmployeeTreeNode[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([getEmployeeTree(), listDepartments(), listEmployees()]).then(([tree, depts, emps]) => {
+    Promise.all([getEmployeeTree(), listDepartments()]).then(([tree, depts]) => {
       setRoots(tree);
       setDepartments(depts);
-      setEmployees(emps);
       setLoading(false);
     });
   }, []);
 
+  // Department rosters/headcounts come from the tree itself (name/role/department only) rather
+  // than the admin-only full employee roster, since this page is visible to every employee.
+  const employeesByDept = useMemo(() => {
+    const byDept = new Map<number, EmployeeTreeNode[]>();
+    function walk(nodes: EmployeeTreeNode[]) {
+      for (const node of nodes) {
+        byDept.set(node.department_id, [...(byDept.get(node.department_id) || []), node]);
+        walk(node.reports);
+      }
+    }
+    walk(roots);
+    return byDept;
+  }, [roots]);
+
   const employeeCountByDept = useMemo(() => {
     const counts = new Map<number, number>();
-    for (const e of employees) {
-      counts.set(e.department_id, (counts.get(e.department_id) || 0) + 1);
-    }
+    for (const [deptId, employees] of employeesByDept) counts.set(deptId, employees.length);
     return counts;
-  }, [employees]);
+  }, [employeesByDept]);
 
   return (
     <div className="space-y-5">
@@ -61,7 +71,7 @@ export default function OrgChartPage() {
       ) : (
         <div className="card p-5">
           {activeTab === "Employee Tree" && <EmployeeTreeColumns roots={roots} />}
-          {activeTab === "Department Tree" && <DepartmentTree departments={departments} counts={employeeCountByDept} />}
+          {activeTab === "Department Tree" && <DepartmentTree departments={departments} employeesByDept={employeesByDept} />}
           {activeTab === "Department Directory" && (
             <table className="w-full data-table">
               <thead>

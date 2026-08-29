@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import select
+from pydantic import BaseModel
+from sqlalchemy import func, or_, select
 
 from app.deps import AdminEmployee, CurrentEmployee, DbSession
 from app.enums import EmployeeRole
@@ -38,6 +39,7 @@ from app.schemas.admin_policy import (
 )
 from app.schemas.balance_adjustment import BalanceAdjustmentCreate, BalanceAdjustmentOut, BalanceOverrideUpdate, LeaveBalanceOut
 from app.schemas.holidays import HolidayBulkCreate, HolidayCreate, HolidayOut
+from app.schemas.pagination import Page, PageDep
 from app.services.accrual_service import compute_available_balance
 from app.services.audit_service import write_audit_entry
 from app.services.org_settings_service import get_org_settings
@@ -77,7 +79,8 @@ def update_org_settings(payload: OrgSettingsUpdate, db: DbSession, admin: AdminE
 
 
 @router.get("/departments", response_model=list[DepartmentOut])
-def list_departments(db: DbSession, _: AdminEmployee):
+def list_departments(db: DbSession, _: CurrentEmployee):
+    # Department names/ids carry no PII -- also read by the org chart, visible to every employee.
     return db.execute(select(Department)).scalars().all()
 
 
@@ -120,8 +123,67 @@ def list_employees(db: DbSession, _: AdminEmployee):
     return [_employee_out(db, e) for e in employees]
 
 
+EMPLOYEE_SORT_COLUMNS = {
+    "full_name": Employee.full_name,
+    "employee_code": Employee.employee_code,
+    "department_id": Employee.department_id,
+    "date_of_joining": Employee.date_of_joining,
+    "employment_status": Employee.employment_status,
+}
+
+
+@router.get("/employees/directory", response_model=Page[EmployeeOut])
+def list_employees_directory(db: DbSession, _: AdminEmployee, page_params: PageDep):
+    # Must stay registered before /employees/{employee_id} -- otherwise FastAPI matches
+    # "directory" against the int path param and 422s before this route is ever reached.
+    stmt = select(Employee)
+    if page_params.q:
+        like = f"%{page_params.q}%"
+        stmt = stmt.where(or_(Employee.full_name.ilike(like), Employee.email.ilike(like), Employee.employee_code.ilike(like)))
+
+    total = db.execute(select(func.count()).select_from(stmt.subquery())).scalar_one()
+
+    sort_column = EMPLOYEE_SORT_COLUMNS.get(page_params.sort_by or "full_name", Employee.full_name)
+    stmt = stmt.order_by(sort_column.desc() if page_params.sort_dir == "desc" else sort_column.asc())
+    stmt = stmt.offset(page_params.offset).limit(page_params.page_size)
+
+    employees = db.execute(stmt).scalars().all()
+    return Page[EmployeeOut](
+        items=[_employee_out(db, e) for e in employees],
+        total=total,
+        page=page_params.page,
+        page_size=page_params.page_size,
+    )
+
+
+class BulkEmployeeStatusUpdate(BaseModel):
+    employee_ids: list[int]
+    is_active: bool
+
+
+@router.patch("/employees/bulk-status")
+def bulk_set_employee_status(payload: BulkEmployeeStatusUpdate, db: DbSession, admin: AdminEmployee):
+    employees = db.execute(select(Employee).where(Employee.id.in_(payload.employee_ids))).scalars().all()
+    for employee in employees:
+        before = {"is_active": employee.is_active}
+        employee.is_active = payload.is_active
+        write_audit_entry(
+            db,
+            "employee",
+            employee.id,
+            "EMPLOYEE_UPDATED",
+            admin.id,
+            before_value=before,
+            after_value={"is_active": employee.is_active},
+        )
+    db.commit()
+    return {"updated": len(employees)}
+
+
 @router.get("/employees/tree", response_model=list[EmployeeTreeNode])
-def get_employee_tree(db: DbSession, _: AdminEmployee):
+def get_employee_tree(db: DbSession, _: CurrentEmployee):
+    # Org chart is visible to every employee, not just HR admins -- it carries no PII beyond
+    # name/role/department, matching what /leave/colleagues already exposes org-wide.
     # Must stay registered before /employees/{employee_id} -- otherwise FastAPI matches
     # "tree" against the int path param and 422s before this route is ever reached.
     employees = db.execute(select(Employee).where(Employee.is_active.is_(True))).scalars().all()

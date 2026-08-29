@@ -1,7 +1,9 @@
 from datetime import date, datetime, timezone
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from pydantic import BaseModel
+from sqlalchemy import func, select
 
 from app.deps import CurrentEmployee, DbSession, require_role
 from app.enums import ApprovalActionType, CheckOutcome, DayRequestStatus, EmployeeRole
@@ -16,6 +18,7 @@ from app.schemas.leave import (
     LeaveApplicationCreate,
     LeaveApplicationRead,
 )
+from app.schemas.pagination import Page, PageDep
 from app.services.accrual_service import compute_available_balance
 from app.services.approval_service import cancel_leave_application, record_approval_action
 from app.services.day_request_service import create_leave_application
@@ -37,6 +40,8 @@ def _to_read_model(
     approver_name = None
     approver_picture_url = None
     approval_history: list[ApprovalActionOut] = []
+
+    applicant = db.get(Employee, day_request.employee_id)
 
     if include_detail:
         if application.approver_employee_id:
@@ -80,6 +85,11 @@ def _to_read_model(
         approver_employee_id=application.approver_employee_id,
         approver_name=approver_name,
         approver_picture_url=approver_picture_url,
+        pending_level=application.pending_level,
+        employee_id=day_request.employee_id,
+        employee_name=applicant.full_name if applicant else None,
+        employee_code=applicant.employee_code if applicant else None,
+        employee_picture_url=applicant.google_picture_url if applicant else None,
         approval_history=approval_history,
     )
 
@@ -299,16 +309,10 @@ def cancel_application(application_id: int, payload: CancelRequest, db: DbSessio
     return _to_read_model(db, application, day_request, leave_type.code if leave_type else None)
 
 
-@router.post("/applications/{application_id}/approve", response_model=LeaveApplicationRead)
-def approve_application(
-    application_id: int,
-    payload: ApproveRejectRequest,
-    db: DbSession,
-    current: Employee = Depends(require_role(EmployeeRole.MANAGER, EmployeeRole.HR_ADMIN)),
-):
+def _approve_or_reject(db: DbSession, current: Employee, application_id: int, action: ApprovalActionType, comment: str | None) -> LeaveApplicationRead:
     application, day_request = _get_owned_application(db, current, application_id)
     _require_can_approve(application, current)
-    approval_action = record_approval_action(db, application, current.id, ApprovalActionType.APPROVED, payload.comment)
+    approval_action = record_approval_action(db, application, current.id, action, comment)
     db.commit()
     db.refresh(application)
     db.refresh(day_request)
@@ -330,6 +334,16 @@ def approve_application(
     return _to_read_model(db, application, day_request, leave_type.code if leave_type else None)
 
 
+@router.post("/applications/{application_id}/approve", response_model=LeaveApplicationRead)
+def approve_application(
+    application_id: int,
+    payload: ApproveRejectRequest,
+    db: DbSession,
+    current: Employee = Depends(require_role(EmployeeRole.MANAGER, EmployeeRole.HR_ADMIN)),
+):
+    return _approve_or_reject(db, current, application_id, ApprovalActionType.APPROVED, payload.comment)
+
+
 @router.post("/applications/{application_id}/reject", response_model=LeaveApplicationRead)
 def reject_application(
     application_id: int,
@@ -337,14 +351,16 @@ def reject_application(
     db: DbSession,
     current: Employee = Depends(require_role(EmployeeRole.MANAGER, EmployeeRole.HR_ADMIN)),
 ):
-    application, day_request = _get_owned_application(db, current, application_id)
-    _require_can_approve(application, current)
-    record_approval_action(db, application, current.id, ApprovalActionType.REJECTED, payload.comment)
-    db.commit()
-    db.refresh(application)
-    db.refresh(day_request)
-    leave_type = db.get(LeaveType, application.leave_type_id)
-    return _to_read_model(db, application, day_request, leave_type.code if leave_type else None)
+    return _approve_or_reject(db, current, application_id, ApprovalActionType.REJECTED, payload.comment)
+
+
+def _pending_approvals_stmt(current_id: int):
+    return (
+        select(LeaveApplication, DayRequest, LeaveType.code)
+        .join(DayRequest, DayRequest.id == LeaveApplication.day_request_id)
+        .join(LeaveType, LeaveType.id == LeaveApplication.leave_type_id)
+        .where(LeaveApplication.approver_employee_id == current_id, DayRequest.status == "PENDING")
+    )
 
 
 @router.get("/approvals/pending", response_model=list[LeaveApplicationRead])
@@ -352,12 +368,60 @@ def list_pending_approvals(
     db: DbSession,
     current: Employee = Depends(require_role(EmployeeRole.MANAGER, EmployeeRole.HR_ADMIN)),
 ):
-    stmt = (
-        select(LeaveApplication, DayRequest, LeaveType.code)
-        .join(DayRequest, DayRequest.id == LeaveApplication.day_request_id)
-        .join(LeaveType, LeaveType.id == LeaveApplication.leave_type_id)
-        .where(LeaveApplication.approver_employee_id == current.id, DayRequest.status == "PENDING")
-        .order_by(LeaveApplication.applied_at.asc())
-    )
+    stmt = _pending_approvals_stmt(current.id).order_by(LeaveApplication.applied_at.asc())
     rows = db.execute(stmt).all()
     return [_to_read_model(db, application, day_request, code, include_detail=False) for application, day_request, code in rows]
+
+
+APPROVAL_SORT_COLUMNS = {
+    "applied_at": LeaveApplication.applied_at,
+    "pending_level": LeaveApplication.pending_level,
+}
+
+
+@router.get("/approvals/pending/page", response_model=Page[LeaveApplicationRead])
+def list_pending_approvals_page(
+    db: DbSession,
+    page_params: PageDep,
+    current: Employee = Depends(require_role(EmployeeRole.MANAGER, EmployeeRole.HR_ADMIN)),
+):
+    base = _pending_approvals_stmt(current.id)
+    total = db.execute(select(func.count()).select_from(base.subquery())).scalar_one()
+
+    sort_column = APPROVAL_SORT_COLUMNS.get(page_params.sort_by or "applied_at", LeaveApplication.applied_at)
+    stmt = base.order_by(sort_column.desc() if page_params.sort_dir == "desc" else sort_column.asc())
+    stmt = stmt.offset(page_params.offset).limit(page_params.page_size)
+
+    rows = db.execute(stmt).all()
+    items = [_to_read_model(db, application, day_request, code, include_detail=False) for application, day_request, code in rows]
+    return Page[LeaveApplicationRead](items=items, total=total, page=page_params.page, page_size=page_params.page_size)
+
+
+class BulkApprovalAction(BaseModel):
+    application_ids: list[int]
+    action: Literal["APPROVE", "REJECT"]
+    comment: str | None = None
+
+
+class BulkApprovalResult(BaseModel):
+    application_id: int
+    ok: bool
+    detail: str | None = None
+
+
+@router.post("/approvals/bulk-action", response_model=list[BulkApprovalResult])
+def bulk_approval_action(
+    payload: BulkApprovalAction,
+    db: DbSession,
+    current: Employee = Depends(require_role(EmployeeRole.MANAGER, EmployeeRole.HR_ADMIN)),
+):
+    action = ApprovalActionType.APPROVED if payload.action == "APPROVE" else ApprovalActionType.REJECTED
+    results: list[BulkApprovalResult] = []
+    for application_id in payload.application_ids:
+        try:
+            _approve_or_reject(db, current, application_id, action, payload.comment)
+            results.append(BulkApprovalResult(application_id=application_id, ok=True))
+        except HTTPException as exc:
+            db.rollback()
+            results.append(BulkApprovalResult(application_id=application_id, ok=False, detail=str(exc.detail)))
+    return results

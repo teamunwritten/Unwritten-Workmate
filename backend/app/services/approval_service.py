@@ -3,8 +3,9 @@ from datetime import date
 from sqlalchemy.orm import Session
 
 from app.enums import ApprovalActionType, DayRequestStatus, EmployeeRole, RequestKind, ResolutionType
-from app.models import ApprovalAction, DayRequest, Employee, EmployeeLeaveBalance, LeaveApplication
+from app.models import ApprovalAction, DayRequest, Employee, EmployeeLeaveBalance, LeaveApplication, LeaveType
 from app.services import google_calendar_service
+from app.services.accrual_service import compute_accrued_as_of
 from app.services.audit_service import write_audit_entry
 from app.services.delegation_service import find_active_delegate, manager_is_on_leave
 from app.services.org_settings_service import get_org_settings
@@ -56,8 +57,24 @@ def finalize_approval(db: Session, leave_application: LeaveApplication, day_requ
             )
             .first()
         )
-        if balance is not None:
-            balance.used_days = float(balance.used_days) + float(leave_application.total_deducted_days)
+        if balance is None:
+            # No admin has ever provisioned a balance row for this employee/type/year (e.g. a
+            # newly created employee) -- lazily create one using the same accrual formula the
+            # "available balance" check already uses, so the deduction below isn't silently lost.
+            employee = db.get(Employee, day_request.employee_id)
+            leave_type = db.get(LeaveType, leave_application.leave_type_id)
+            accrued = compute_accrued_as_of(employee, leave_type, day_request.start_date)
+            balance = EmployeeLeaveBalance(
+                employee_id=day_request.employee_id,
+                leave_type_id=leave_application.leave_type_id,
+                year=day_request.start_date.year,
+                entitled_days=float(accrued),
+                accrued_days=float(accrued),
+                used_days=0,
+                carried_forward_days=0,
+            )
+            db.add(balance)
+        balance.used_days = float(balance.used_days) + float(leave_application.total_deducted_days)
 
     if day_request.request_kind == RequestKind.LEAVE:
         employee = db.get(Employee, day_request.employee_id)

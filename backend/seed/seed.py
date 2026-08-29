@@ -64,7 +64,10 @@ def run_seed() -> None:
             ("CL", "Casual Leave", 12, AccrualMode.UPFRONT, True, True),
             ("SL", "Sick Leave", 6, AccrualMode.UPFRONT, True, True),
             ("OL", "Optional Holiday", 6, AccrualMode.UPFRONT, False, True),
-            ("WFH", "Work From Home", 0, AccrualMode.UPFRONT, False, True),
+            # WFH isn't a scarce, balance-limited leave type like CL/SL -- give it a high nominal
+            # cap (every working day in a year) rather than 0, which combined with this policy's
+            # zero_balance_action=BLOCK below made every WFH request fail unconditionally.
+            ("WFH", "Work From Home", 260, AccrualMode.UPFRONT, False, True),
             ("OD", "On Duty", 0, AccrualMode.UPFRONT, False, False),  # not used by this org
             ("LOP", "Loss of Pay", 0, AccrualMode.UPFRONT, False, True),
         ]

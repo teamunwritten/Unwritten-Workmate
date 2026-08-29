@@ -7,13 +7,27 @@ import Avatar from "@/components/Avatar";
 const CARD_HEIGHT = 60;
 const GAP = 8;
 const ROW_STEP = CARD_HEIGHT + GAP;
-const GUTTER_WIDTH = 40;
+const GUTTER_WIDTH = 32;
 
 function countDescendants(node: EmployeeTreeNode): number {
   return node.reports.reduce((sum, child) => sum + 1 + countDescendants(child), 0);
 }
 
-function PersonCard({
+function ReportBadge({ count, selected }: { count: number; selected: boolean }) {
+  if (count === 0) return null;
+  return (
+    <div
+      className={`shrink-0 flex items-center justify-center rounded-md text-[11px] font-semibold px-1.5 border ${
+        selected ? "bg-brand text-white border-brand" : "bg-surface text-muted border-border"
+      }`}
+      style={{ minWidth: 22, height: 18 }}
+    >
+      {count}
+    </div>
+  );
+}
+
+function PersonRow({
   node,
   selected,
   onClick,
@@ -22,39 +36,45 @@ function PersonCard({
   selected: boolean;
   onClick: () => void;
 }) {
+  const reportCount = countDescendants(node);
   return (
     <button
       type="button"
       onClick={onClick}
       style={{ height: CARD_HEIGHT }}
-      className={`w-64 flex items-center gap-3 rounded-lg border px-3 text-left transition-colors shrink-0 ${
+      className={`w-64 flex items-center gap-2 rounded-lg border pl-3 pr-2 text-left transition-colors shrink-0 ${
         selected ? "border-brand bg-brand-soft/60 ring-1 ring-brand" : "border-border bg-surface hover:bg-canvas"
       }`}
     >
       <Avatar name={node.full_name} size={34} pictureUrl={node.picture_url} />
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="text-sm font-semibold text-ink truncate">{node.full_name}</div>
         <div className="text-xs text-muted truncate">
           {node.position || roleLabel(node.role)}
           {node.department_name ? ` · ${node.department_name}` : ""}
         </div>
       </div>
+      <ReportBadge count={reportCount} selected={selected} />
     </button>
   );
 }
 
-function Connector({ selectedIndex, count }: { selectedIndex: number; count: number }) {
-  const top = selectedIndex * ROW_STEP + CARD_HEIGHT / 2;
+/** Elbow connector from the selected row to every row of the next column, matching a
+ * Finder-style column browser: one tick out of the selected card, a vertical spine, then one
+ * tick into each row of the next column. */
+function Connector({ fromIndex, childCount }: { fromIndex: number; childCount: number }) {
+  const fromY = fromIndex * ROW_STEP + CARD_HEIGHT / 2;
+  const toYs = Array.from({ length: childCount }, (_, i) => i * ROW_STEP + CARD_HEIGHT / 2);
+  const spineTop = Math.min(fromY, ...toYs);
+  const spineHeight = Math.max(fromY, ...toYs) - spineTop;
+
   return (
     <div className="relative shrink-0" style={{ width: GUTTER_WIDTH }}>
-      <div className="absolute left-0 h-px bg-border" style={{ top, width: GUTTER_WIDTH / 2 }} />
-      <div
-        className="absolute flex items-center justify-center rounded-md bg-brand text-white text-[11px] font-semibold px-1.5"
-        style={{ top, left: GUTTER_WIDTH / 2 - 12, transform: "translateY(-50%)", minWidth: 24, height: 18 }}
-      >
-        {count}
-      </div>
-      <div className="absolute right-0 h-px bg-border" style={{ top, width: GUTTER_WIDTH / 2 }} />
+      <div className="absolute bg-brand" style={{ top: fromY, left: 0, width: GUTTER_WIDTH / 2, height: 1.5 }} />
+      <div className="absolute bg-brand" style={{ top: spineTop, left: GUTTER_WIDTH / 2, width: 1.5, height: spineHeight }} />
+      {toYs.map((y, i) => (
+        <div key={i} className="absolute bg-brand" style={{ top: y, left: GUTTER_WIDTH / 2, width: GUTTER_WIDTH / 2, height: 1.5 }} />
+      ))}
     </div>
   );
 }
@@ -89,21 +109,17 @@ export default function EmployeeTreeColumns({ roots }: { roots: EmployeeTreeNode
           const selectedId = selectedPath[depth];
           const selectedNode = col.find((n) => n.id === selectedId);
           const selectedIndex = col.findIndex((n) => n.id === selectedId);
-          const showConnector = depth < columns.length - 1 && selectedNode && selectedNode.reports.length > 0;
+          const nextColumn = columns[depth + 1];
+          const showConnector = Boolean(selectedNode && nextColumn && nextColumn.length > 0);
 
           return (
             <div key={depth} className="flex items-start">
               <div className="flex flex-col" style={{ gap: GAP }}>
                 {col.map((node) => (
-                  <PersonCard
-                    key={node.id}
-                    node={node}
-                    selected={node.id === selectedId}
-                    onClick={() => handleSelect(depth, node)}
-                  />
+                  <PersonRow key={node.id} node={node} selected={node.id === selectedId} onClick={() => handleSelect(depth, node)} />
                 ))}
               </div>
-              {showConnector && <Connector selectedIndex={selectedIndex} count={countDescendants(selectedNode!)} />}
+              {showConnector && <Connector fromIndex={selectedIndex} childCount={nextColumn.length} />}
             </div>
           );
         })}

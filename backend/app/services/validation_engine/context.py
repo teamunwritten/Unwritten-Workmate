@@ -2,20 +2,21 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import (
+    DayRequest,
     DayRequestSession,
     Employee,
     EmployeeLeaveBalance,
     EmployeeOptionalHolidayCap,
     Holiday,
+    LeaveApplication,
     LeavePolicy,
     LeaveType,
     LeaveTypeEligibilityRule,
     LeaveTypeRestriction,
-    OptionalHolidayPick,
     PolicyVersion,
 )
 from app.schemas.leave import SessionInput
@@ -134,12 +135,23 @@ def build_validation_context(
     ).scalars().all()
     holiday_dates = set(holiday_rows)
 
-    optional_pick_count = db.execute(
-        select(OptionalHolidayPick).where(
-            OptionalHolidayPick.employee_id == employee_id,
-            OptionalHolidayPick.year == start_date.year,
-        )
-    ).scalars().all()
+    # Counts actual active (pending/approved) OL leave applications for the year rather than a
+    # separate "pick" record -- no dedicated calendar-pick flow exists in this app, so the quota
+    # must be enforced against the same applications the employee actually files.
+    optional_pick_count = 0
+    if leave_type.code == "OL":
+        optional_pick_count = db.execute(
+            select(func.count(DayRequestSession.id))
+            .join(DayRequest, DayRequest.id == DayRequestSession.day_request_id)
+            .join(LeaveApplication, LeaveApplication.day_request_id == DayRequest.id)
+            .where(
+                DayRequestSession.employee_id == employee_id,
+                DayRequestSession.is_active.is_(True),
+                LeaveApplication.leave_type_id == leave_type_id,
+                DayRequestSession.session_date >= date(start_date.year, 1, 1),
+                DayRequestSession.session_date <= date(start_date.year, 12, 31),
+            )
+        ).scalar_one()
 
     cap_row = db.get(EmployeeOptionalHolidayCap, employee_id)
     optional_pick_cap = Decimal(str(cap_row.annual_cap)) if cap_row else Decimal("6")
@@ -162,6 +174,6 @@ def build_validation_context(
         eligibility_rule=eligibility_rule,
         restrictions=list(restrictions),
         holiday_dates=holiday_dates,
-        optional_pick_count=len(optional_pick_count),
+        optional_pick_count=optional_pick_count,
         optional_pick_cap=optional_pick_cap,
     )

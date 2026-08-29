@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { createEmployee, listDepartments, listEmployees } from "@/lib/api/admin";
 import { Department, Employee, EmployeeRole, roleLabel } from "@/lib/types";
-import Avatar from "@/components/Avatar";
 import Icon from "@/components/Icon";
+import EmployeeDirectoryTable, { EmployeeDirectoryTableHandle } from "@/components/EmployeeDirectoryTable";
 
 const EMPTY_FORM = {
   employee_code: "",
@@ -25,39 +24,27 @@ const EMPTY_FORM = {
   role: "EMPLOYEE",
 };
 
-const STATUS_STYLE: Record<string, string> = {
-  ACTIVE: "bg-success-soft text-success",
-  PROBATION: "bg-warning-soft text-warning",
-  NOTICE_PERIOD: "bg-danger-soft text-danger",
-  TERMINATED: "bg-canvas text-muted",
-};
-
 export default function AdminEmployeesPage() {
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  // Full, unpaginated roster -- used only to populate the "Manager" dropdown in the create form,
+  // which needs every employee regardless of what page the directory table below is showing.
+  const [managerOptions, setManagerOptions] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [query, setQuery] = useState("");
+  const [total, setTotal] = useState(0);
   const [form, setForm] = useState<any>(EMPTY_FORM);
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const tableRef = useRef<EmployeeDirectoryTableHandle>(null);
 
   async function load() {
     const [emps, depts] = await Promise.all([listEmployees(), listDepartments()]);
-    setEmployees(emps);
+    setManagerOptions(emps);
     setDepartments(depts);
   }
 
   useEffect(() => {
     load();
   }, []);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return employees;
-    return employees.filter(
-      (e) => e.full_name.toLowerCase().includes(q) || e.email.toLowerCase().includes(q) || e.employee_code.toLowerCase().includes(q)
-    );
-  }, [employees, query]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -79,6 +66,7 @@ export default function AdminEmployeesPage() {
       setForm(EMPTY_FORM);
       setShowForm(false);
       await load();
+      tableRef.current?.reload();
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -91,24 +79,12 @@ export default function AdminEmployeesPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-semibold tracking-tight mb-1">Employees</h1>
-          <p className="text-sm text-muted">Total employees: {employees.length}</p>
+          <p className="text-sm text-muted">Total employees: {total}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Icon name="search" className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-            <input
-              type="text"
-              placeholder="Search employee"
-              className="input pl-9 w-56"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </div>
-          <button className="btn-primary text-sm flex items-center gap-1.5" onClick={() => setShowForm((v) => !v)}>
-            <Icon name="apply" className="h-4 w-4" />
-            {showForm ? "Close" : "Add"}
-          </button>
-        </div>
+        <button className="btn-primary text-sm flex items-center gap-1.5" onClick={() => setShowForm((v) => !v)}>
+          <Icon name="apply" className="h-4 w-4" />
+          {showForm ? "Close" : "Add"}
+        </button>
       </div>
 
       {showForm && (
@@ -141,7 +117,7 @@ export default function AdminEmployeesPage() {
               onChange={(e) => setForm({ ...form, manager_id: e.target.value })}
             >
               <option value="">{form.role === "HR_ADMIN" ? "Admins have no manager" : "No manager"}</option>
-              {employees.map((e) => (
+              {managerOptions.map((e) => (
                 <option key={e.id} value={e.id}>{e.full_name}</option>
               ))}
             </select>
@@ -204,57 +180,7 @@ export default function AdminEmployeesPage() {
         </form>
       )}
 
-      <div className="card overflow-hidden">
-        <table className="w-full data-table">
-          <thead>
-            <tr>
-              <th>Basic information</th>
-              <th>Date of joining</th>
-              <th>Position</th>
-              <th>Department</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((emp) => (
-              <tr key={emp.id}>
-                <td>
-                  <Link href={`/admin/employees/${emp.id}`} className="flex items-center gap-3 group">
-                    <Avatar name={emp.full_name} size={32} pictureUrl={emp.picture_url} />
-                    <div className="min-w-0">
-                      <div className="font-medium text-ink group-hover:text-brand truncate">
-                        {emp.full_name}, {emp.employee_code}
-                      </div>
-                      <div className="text-[11.5px] text-muted truncate">{emp.email}</div>
-                    </div>
-                  </Link>
-                </td>
-                <td className="text-muted">{emp.date_of_joining}</td>
-                <td>{emp.position || <span className="text-muted">—</span>}</td>
-                <td className="text-muted">{emp.department_name || "—"}</td>
-                <td>
-                  <span className={`badge ${STATUS_STYLE[emp.employment_status] || "bg-canvas text-muted"}`}>
-                    {emp.employment_status.replace("_", " ")}
-                  </span>
-                </td>
-                <td>
-                  <Link href={`/admin/employees/${emp.id}`} className="text-brand text-xs font-medium">
-                    View
-                  </Link>
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={6} className="text-center text-muted py-8">
-                  No employees found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <EmployeeDirectoryTable ref={tableRef} onTotalChange={setTotal} />
     </div>
   );
 }

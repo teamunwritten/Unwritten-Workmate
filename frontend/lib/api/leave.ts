@@ -1,5 +1,6 @@
 import { apiGet, apiPost } from "@/lib/api/client";
-import { LeaveApplication, LeaveApplicationCreate, LeaveBalance } from "@/lib/types";
+import { pageQueryString, PageQuery } from "@/lib/api/query";
+import { LeaveApplication, LeaveApplicationCreate, LeaveBalance, Paginated } from "@/lib/types";
 
 export const getBalances = () => apiGet<LeaveBalance[]>("/leave/balances");
 export const listApplications = () => apiGet<LeaveApplication[]>("/leave/applications");
@@ -13,5 +14,13 @@ export const approveApplication = (id: number, comment?: string) =>
 export const rejectApplication = (id: number, comment?: string) =>
   apiPost<LeaveApplication>(`/leave/applications/${id}/reject`, { comment });
 export const listPendingApprovals = () => apiGet<LeaveApplication[]>("/leave/approvals/pending");
+export const listPendingApprovalsPage = (params: PageQuery) =>
+  apiGet<Paginated<LeaveApplication>>(`/leave/approvals/pending/page${pageQueryString(params)}`);
+export const bulkApprovalAction = (application_ids: number[], action: "APPROVE" | "REJECT", comment?: string) =>
+  apiPost<{ application_id: number; ok: boolean; detail: string | null }[]>("/leave/approvals/bulk-action", {
+    application_ids,
+    action,
+    comment,
+  });
 export const listColleagues = () =>
   apiGet<{ id: number; full_name: string; email: string; picture_url: string | null }[]>("/leave/colleagues");
