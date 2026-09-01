@@ -1,9 +1,9 @@
 import { Payslip } from "@/lib/types";
-import { MONTHS, companyBranding, employerDetailsLine, formatCurrency } from "@/lib/payslipFormat";
+import { MONTHS, companyBranding, employerFooterLines, formatCurrency } from "@/lib/payslipFormat";
 
 export default function CompactDesign({ payslip }: { payslip: Payslip }) {
   const { companyName, logoDataUrl } = companyBranding(payslip.header_config);
-  const employerLine = employerDetailsLine(payslip.header_config);
+  const employerFooter = employerFooterLines(payslip.header_config);
 
   return (
     <div className="bg-white text-[#1a1a1a] border border-[#d8dce3] text-[11px] leading-tight print:border-0">
@@ -71,7 +71,8 @@ export default function CompactDesign({ payslip }: { payslip: Payslip }) {
       </div>
 
       {payslip.footer_note && <div className="px-4 pb-1 text-[9.5px] text-[#9ca3af]">{payslip.footer_note}</div>}
-      {employerLine && <div className="px-4 pb-2 text-[9px] text-[#9ca3af]">{employerLine}</div>}
+      {employerFooter.legal && <div className="px-4 text-[9px] text-[#9ca3af]">{employerFooter.legal}</div>}
+      {employerFooter.contact && <div className="px-4 pb-2 text-[8.5px] text-[#9ca3af]">{employerFooter.contact}</div>}
     </div>
   );
 }

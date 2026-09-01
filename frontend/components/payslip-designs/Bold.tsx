@@ -1,12 +1,12 @@
 import { Payslip } from "@/lib/types";
-import { MONTHS, companyBranding, employerDetailsLine, formatCurrency, formatDate } from "@/lib/payslipFormat";
+import { MONTHS, companyBranding, employerFooterLines, formatCurrency, formatDate } from "@/lib/payslipFormat";
 
 export default function BoldDesign({ payslip }: { payslip: Payslip }) {
   const earnings = payslip.line_items.filter((i) => i.component_type === "EARNING");
   const deductions = payslip.line_items.filter((i) => i.component_type === "DEDUCTION");
   const totalDeductions = deductions.reduce((sum, i) => sum + i.value, 0);
   const { companyName, companyTagline, logoDataUrl } = companyBranding(payslip.header_config);
-  const employerLine = employerDetailsLine(payslip.header_config);
+  const employerFooter = employerFooterLines(payslip.header_config);
 
   return (
     <div className="bg-white text-[#1a1a1a] overflow-hidden print:border">
@@ -93,7 +93,8 @@ export default function BoldDesign({ payslip }: { payslip: Payslip }) {
           No signature required. Tax and statutory deductions are not yet calculated.
         </p>
         {payslip.footer_note && <p className="text-[10.5px] text-[#64748b]">{payslip.footer_note}</p>}
-        {employerLine && <p className="text-[10px] text-[#94a3b8]">{employerLine}</p>}
+        {employerFooter.legal && <p className="text-[10px] text-[#94a3b8]">{employerFooter.legal}</p>}
+        {employerFooter.contact && <p className="text-[9.5px] text-[#94a3b8]">{employerFooter.contact}</p>}
       </div>
     </div>
   );

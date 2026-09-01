@@ -1,5 +1,5 @@
 import { Payslip } from "@/lib/types";
-import { MONTHS, companyBranding, employerDetailsLine, formatCurrency, formatDate } from "@/lib/payslipFormat";
+import { MONTHS, companyBranding, employerFooterLines, formatCurrency, formatDate } from "@/lib/payslipFormat";
 
 export default function FormalDesign({ payslip }: { payslip: Payslip }) {
   const earnings = payslip.line_items.filter((i) => i.component_type === "EARNING");
@@ -7,7 +7,7 @@ export default function FormalDesign({ payslip }: { payslip: Payslip }) {
   const totalDeductions = deductions.reduce((sum, i) => sum + i.value, 0);
   const rowCount = Math.max(earnings.length, deductions.length);
   const { companyName, companyTagline, logoDataUrl } = companyBranding(payslip.header_config);
-  const employerLine = employerDetailsLine(payslip.header_config);
+  const employerFooter = employerFooterLines(payslip.header_config);
 
   return (
     <div className="bg-white text-[#1a1a1a] font-serif p-3 print:p-0">
@@ -90,7 +90,8 @@ export default function FormalDesign({ payslip }: { payslip: Payslip }) {
               configured salary components only.
             </p>
             {payslip.footer_note && <p className="text-[10.5px] italic text-[#4b5563] mt-1">{payslip.footer_note}</p>}
-            {employerLine && <p className="text-[10px] not-italic text-[#6b7280] mt-1 max-w-xs">{employerLine}</p>}
+            {employerFooter.legal && <p className="text-[10px] not-italic text-[#6b7280] mt-1 max-w-xs">{employerFooter.legal}</p>}
+            {employerFooter.contact && <p className="text-[9.5px] not-italic text-[#9ca3af] max-w-xs">{employerFooter.contact}</p>}
           </div>
           <div className="text-center">
             <div className="border-t border-[#1a1a1a] w-40 pt-1">Authorized Signatory</div>

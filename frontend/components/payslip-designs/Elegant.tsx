@@ -1,12 +1,12 @@
 import { Payslip } from "@/lib/types";
-import { MONTHS, companyBranding, employerDetailsLine, formatCurrency, formatDate } from "@/lib/payslipFormat";
+import { MONTHS, companyBranding, employerFooterLines, formatCurrency, formatDate } from "@/lib/payslipFormat";
 
 export default function ElegantDesign({ payslip }: { payslip: Payslip }) {
   const earnings = payslip.line_items.filter((i) => i.component_type === "EARNING");
   const deductions = payslip.line_items.filter((i) => i.component_type === "DEDUCTION");
   const totalDeductions = deductions.reduce((sum, i) => sum + i.value, 0);
   const { companyName, companyTagline, logoDataUrl } = companyBranding(payslip.header_config);
-  const employerLine = employerDetailsLine(payslip.header_config);
+  const employerFooter = employerFooterLines(payslip.header_config);
 
   return (
     <div className="bg-white text-[#26241f] px-12 py-11 print:px-0 print:py-0">
@@ -88,7 +88,8 @@ export default function ElegantDesign({ payslip }: { payslip: Payslip }) {
           Computer-generated and does not require a signature. Net pay reflects configured salary components only.
         </p>
         {payslip.footer_note && <p className="text-[10px] text-[#a39c8c]">{payslip.footer_note}</p>}
-        {employerLine && <p className="text-[9.5px] text-[#c2bcae]">{employerLine}</p>}
+        {employerFooter.legal && <p className="text-[9.5px] text-[#c2bcae]">{employerFooter.legal}</p>}
+        {employerFooter.contact && <p className="text-[9px] text-[#c2bcae]">{employerFooter.contact}</p>}
       </div>
     </div>
   );

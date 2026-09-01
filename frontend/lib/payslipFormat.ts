@@ -26,15 +26,20 @@ export function companyBranding(headerConfig: PayslipHeaderConfig | null) {
   return { companyName, companyTagline, companyInitials, logoDataUrl };
 }
 
-/** A single formatted line of employer statutory/contact details for the payslip footer --
- * only the fields the admin actually filled in on the template appear, each separated by " · ". */
-export function employerDetailsLine(headerConfig: PayslipHeaderConfig | null): string {
-  if (!headerConfig) return "";
-  const parts: string[] = [];
-  if (headerConfig.company_legal_name) parts.push(headerConfig.company_legal_name);
-  if (headerConfig.company_pan) parts.push(`PAN ${headerConfig.company_pan}`);
-  if (headerConfig.registered_office_address) parts.push(headerConfig.registered_office_address);
-  if (headerConfig.contact_email) parts.push(headerConfig.contact_email);
-  if (headerConfig.contact_phone) parts.push(headerConfig.contact_phone);
-  return parts.join(" · ");
+/** Two separate formatted lines of employer footer details, kept apart because they carry
+ * different weight: legal identity (name, PAN, registered address -- has compliance/statutory
+ * relevance) vs. contact (email, phone -- just how to reach support). Only fields the admin
+ * actually filled in on the template appear, each joined by " · ". */
+export function employerFooterLines(headerConfig: PayslipHeaderConfig | null): { legal: string; contact: string } {
+  if (!headerConfig) return { legal: "", contact: "" };
+  const legalParts: string[] = [];
+  if (headerConfig.company_legal_name) legalParts.push(headerConfig.company_legal_name);
+  if (headerConfig.company_pan) legalParts.push(`PAN ${headerConfig.company_pan}`);
+  if (headerConfig.registered_office_address) legalParts.push(headerConfig.registered_office_address);
+
+  const contactParts: string[] = [];
+  if (headerConfig.contact_email) contactParts.push(headerConfig.contact_email);
+  if (headerConfig.contact_phone) contactParts.push(headerConfig.contact_phone);
+
+  return { legal: legalParts.join(" · "), contact: contactParts.join(" · ") };
 }

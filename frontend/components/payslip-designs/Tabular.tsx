@@ -1,5 +1,5 @@
 import { Payslip } from "@/lib/types";
-import { MONTHS, companyBranding, employerDetailsLine, formatCurrency, formatDate } from "@/lib/payslipFormat";
+import { MONTHS, companyBranding, employerFooterLines, formatCurrency, formatDate } from "@/lib/payslipFormat";
 
 const CELL = "border border-[#333] px-2.5 py-1.5";
 const LABEL = `${CELL} bg-[#f0f0f0] text-[#333] font-medium w-1/6`;
@@ -8,7 +8,7 @@ const VALUE = `${CELL} w-1/3`;
 export default function TabularDesign({ payslip }: { payslip: Payslip }) {
   const totalDeductions = payslip.line_items.filter((i) => i.component_type === "DEDUCTION").reduce((s, i) => s + i.value, 0);
   const { companyName, logoDataUrl } = companyBranding(payslip.header_config);
-  const employerLine = employerDetailsLine(payslip.header_config);
+  const employerFooter = employerFooterLines(payslip.header_config);
 
   return (
     <div className="bg-white text-[#1a1a1a] text-[11.5px] p-4 print:p-0">
@@ -96,7 +96,8 @@ export default function TabularDesign({ payslip }: { payslip: Payslip }) {
               This is a computer-generated salary slip and does not require a signature. Net pay reflects configured salary
               components only.
               {payslip.footer_note && <> {payslip.footer_note}</>}
-              {employerLine && <> · {employerLine}</>}
+              {employerFooter.legal && <> · {employerFooter.legal}</>}
+              {employerFooter.contact && <> · {employerFooter.contact}</>}
             </td>
           </tr>
         </tbody>

@@ -1,5 +1,5 @@
 import { Payslip } from "@/lib/types";
-import { MONTHS, companyBranding, employerDetailsLine, formatCurrency, formatDate } from "@/lib/payslipFormat";
+import { MONTHS, companyBranding, employerFooterLines, formatCurrency, formatDate } from "@/lib/payslipFormat";
 
 export default function ClassicDesign({ payslip }: { payslip: Payslip }) {
   const earnings = payslip.line_items.filter((i) => i.component_type === "EARNING");
@@ -7,7 +7,7 @@ export default function ClassicDesign({ payslip }: { payslip: Payslip }) {
   const totalDeductions = deductions.reduce((sum, i) => sum + i.value, 0);
   const rowCount = Math.max(earnings.length, deductions.length);
   const { companyName, companyTagline, companyInitials, logoDataUrl } = companyBranding(payslip.header_config);
-  const employerLine = employerDetailsLine(payslip.header_config);
+  const employerFooter = employerFooterLines(payslip.header_config);
 
   return (
     <div className="bg-white text-[#1a1a1a] border border-[#d8dce3] shadow-sm print:border-0 print:shadow-none">
@@ -121,7 +121,8 @@ export default function ClassicDesign({ payslip }: { payslip: Payslip }) {
           <p className="text-[10.5px] text-[#9ca3af]">Approved by {payslip.approved_by_name}.</p>
         )}
         {payslip.footer_note && <p className="text-[10.5px] text-[#6b7280] pt-1">{payslip.footer_note}</p>}
-        {employerLine && <p className="text-[10px] text-[#9ca3af] pt-1">{employerLine}</p>}
+        {employerFooter.legal && <p className="text-[10px] text-[#9ca3af] pt-1">{employerFooter.legal}</p>}
+        {employerFooter.contact && <p className="text-[9.5px] text-[#c1c6cf]">{employerFooter.contact}</p>}
       </div>
     </div>
   );

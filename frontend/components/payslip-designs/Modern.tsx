@@ -1,12 +1,12 @@
 import { Payslip } from "@/lib/types";
-import { MONTHS, companyBranding, employerDetailsLine, formatCurrency, formatDate } from "@/lib/payslipFormat";
+import { MONTHS, companyBranding, employerFooterLines, formatCurrency, formatDate } from "@/lib/payslipFormat";
 
 export default function ModernDesign({ payslip }: { payslip: Payslip }) {
   const earnings = payslip.line_items.filter((i) => i.component_type === "EARNING");
   const deductions = payslip.line_items.filter((i) => i.component_type === "DEDUCTION");
   const totalDeductions = deductions.reduce((sum, i) => sum + i.value, 0);
   const { companyName, companyTagline, companyInitials, logoDataUrl } = companyBranding(payslip.header_config);
-  const employerLine = employerDetailsLine(payslip.header_config);
+  const employerFooter = employerFooterLines(payslip.header_config);
 
   return (
     <div className="bg-white text-[#1a1a1a] rounded-2xl border border-[#e7e9ee] shadow-md overflow-hidden print:border print:shadow-none print:rounded-none">
@@ -96,7 +96,8 @@ export default function ModernDesign({ payslip }: { payslip: Payslip }) {
         </p>
         {payslip.approved_by_name && <p className="text-[10.5px] text-[#9ca3af]">Approved by {payslip.approved_by_name}.</p>}
         {payslip.footer_note && <p className="text-[10.5px] text-[#6b7280]">{payslip.footer_note}</p>}
-        {employerLine && <p className="text-[10px] text-[#9ca3af]">{employerLine}</p>}
+        {employerFooter.legal && <p className="text-[10px] text-[#9ca3af]">{employerFooter.legal}</p>}
+        {employerFooter.contact && <p className="text-[9.5px] text-[#9ca3af]">{employerFooter.contact}</p>}
       </div>
     </div>
   );

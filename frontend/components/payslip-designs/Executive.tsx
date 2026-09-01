@@ -1,12 +1,12 @@
 import { Payslip } from "@/lib/types";
-import { MONTHS, companyBranding, employerDetailsLine, formatCurrency, formatDate } from "@/lib/payslipFormat";
+import { MONTHS, companyBranding, employerFooterLines, formatCurrency, formatDate } from "@/lib/payslipFormat";
 
 export default function ExecutiveDesign({ payslip }: { payslip: Payslip }) {
   const earnings = payslip.line_items.filter((i) => i.component_type === "EARNING");
   const deductions = payslip.line_items.filter((i) => i.component_type === "DEDUCTION");
   const totalDeductions = deductions.reduce((sum, i) => sum + i.value, 0);
   const { companyName, companyTagline, companyInitials, logoDataUrl } = companyBranding(payslip.header_config);
-  const employerLine = employerDetailsLine(payslip.header_config);
+  const employerFooter = employerFooterLines(payslip.header_config);
 
   const netPct = payslip.gross_pay > 0 ? Math.max(0, Math.min(100, (payslip.net_pay / payslip.gross_pay) * 100)) : 0;
   const deductPct = 100 - netPct;
@@ -112,7 +112,8 @@ export default function ExecutiveDesign({ payslip }: { payslip: Payslip }) {
           Computer-generated, no signature required. Tax and statutory deductions are not yet calculated.
         </p>
         {payslip.footer_note && <p className="text-[10px] text-[#6b7280]">{payslip.footer_note}</p>}
-        {employerLine && <p className="text-[9.5px] text-[#c1c6cf]">{employerLine}</p>}
+        {employerFooter.legal && <p className="text-[9.5px] text-[#c1c6cf]">{employerFooter.legal}</p>}
+        {employerFooter.contact && <p className="text-[9px] text-[#c1c6cf]">{employerFooter.contact}</p>}
       </div>
     </div>
   );

@@ -1,9 +1,9 @@
 import { Payslip } from "@/lib/types";
-import { MONTHS, companyBranding, employerDetailsLine, formatCurrency, formatDate } from "@/lib/payslipFormat";
+import { MONTHS, companyBranding, employerFooterLines, formatCurrency, formatDate } from "@/lib/payslipFormat";
 
 export default function MinimalDesign({ payslip }: { payslip: Payslip }) {
   const { companyName, companyTagline, logoDataUrl } = companyBranding(payslip.header_config);
-  const employerLine = employerDetailsLine(payslip.header_config);
+  const employerFooter = employerFooterLines(payslip.header_config);
 
   return (
     <div className="bg-white text-[#1f2328] px-14 py-12 print:px-0 print:py-0">
@@ -59,7 +59,8 @@ export default function MinimalDesign({ payslip }: { payslip: Payslip }) {
           statutory deductions are not yet calculated.
         </p>
         {payslip.footer_note && <p className="text-[10.5px] text-[#c1c6cf]">{payslip.footer_note}</p>}
-        {employerLine && <p className="text-[10px] text-[#c1c6cf]">{employerLine}</p>}
+        {employerFooter.legal && <p className="text-[10px] text-[#c1c6cf]">{employerFooter.legal}</p>}
+        {employerFooter.contact && <p className="text-[9.5px] text-[#c1c6cf]">{employerFooter.contact}</p>}
       </div>
     </div>
   );
