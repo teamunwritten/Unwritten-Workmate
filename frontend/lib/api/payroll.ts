@@ -7,6 +7,7 @@ export const createPayrollRun = (payload: { period_month: number; period_year: n
 export const getPayrollRun = (id: number) => apiGet<PayrollRunDetail>(`/payroll/runs/${id}`);
 export const updatePayrollRunStatus = (id: number, status: string) =>
   apiPatch<PayrollRun>(`/payroll/runs/${id}`, { status });
+export const recomputePayrollRun = (id: number) => apiPost<PayrollRunDetail>(`/payroll/runs/${id}/recompute`);
 
 export const listPayslipTemplates = () => apiGet<PayslipTemplate[]>("/payroll/payslip-templates");
 export const createPayslipTemplate = (payload: Record<string, unknown>) =>

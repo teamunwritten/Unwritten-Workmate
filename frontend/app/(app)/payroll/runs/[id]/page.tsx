@@ -3,7 +3,14 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { approveRunPayslips, generatePayslips, getPayrollRun, listPayslipTemplates, updatePayrollRunStatus } from "@/lib/api/payroll";
+import {
+  approveRunPayslips,
+  generatePayslips,
+  getPayrollRun,
+  listPayslipTemplates,
+  recomputePayrollRun,
+  updatePayrollRunStatus,
+} from "@/lib/api/payroll";
 import { PayrollRunDetail, PayslipTemplate } from "@/lib/types";
 import { useConfirm } from "@/components/ConfirmProvider";
 import { useToast } from "@/components/ToastProvider";
@@ -45,6 +52,23 @@ export default function PayrollRunDetailPage() {
     try {
       await updatePayrollRunStatus(run.id, next);
       await load();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleRecompute() {
+    if (!run) return;
+    const ok = await confirm(
+      `Re-resolve every entry for ${MONTHS[run.period_month - 1]} ${run.period_year} against each employee's current salary assignment? Already-approved payslips are left untouched.`,
+      { title: "Re-run payroll", confirmLabel: "Re-run" }
+    );
+    if (!ok) return;
+    setBusy(true);
+    try {
+      await recomputePayrollRun(run.id);
+      await load();
+      showToast("Payroll run re-computed.");
     } finally {
       setBusy(false);
     }
@@ -102,6 +126,11 @@ export default function PayrollRunDetailPage() {
               </Link>{" "}
               to generate payslips.
             </span>
+          )}
+          {run.status === "DRAFT" && (
+            <button className="btn-secondary text-sm" disabled={busy} onClick={handleRecompute}>
+              Re-run
+            </button>
           )}
           <button className="btn-secondary text-sm" disabled={busy || !hasDefaultTemplate} onClick={handleGeneratePayslips}>
             Generate payslips

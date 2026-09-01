@@ -28,7 +28,7 @@ from app.schemas.payroll import (
     PayslipTemplateUpdate,
 )
 from app.services.email_service import send_payslip_ready_email
-from app.services.payroll_service import create_run_with_entries, generate_payslips_for_run, run_auto_generate
+from app.services.payroll_service import create_run_with_entries, generate_payslips_for_run, recompute_run_entries, run_auto_generate
 
 router = APIRouter(prefix="/payroll", tags=["payroll"])
 
@@ -116,6 +116,28 @@ def update_payroll_run_status(run_id: int, payload: PayrollRunStatusUpdate, db: 
     db.commit()
     db.refresh(run)
     return _run_out(db, run)
+
+
+@router.post("/runs/{run_id}/recompute", response_model=PayrollRunDetailOut)
+def recompute_payroll_run(run_id: int, db: DbSession, _: AdminEmployee):
+    """Re-resolves every entry (and any still-DRAFT payslip) against whatever salary assignment
+    is in effect now -- for when an assignment was created, corrected, or only became resolvable
+    after this run already existed, so its entries are stuck showing stale/zero figures from
+    whenever they were last snapshotted. Only allowed while the run is still DRAFT; approved
+    payslips are never touched regardless."""
+    run = db.get(PayrollRun, run_id)
+    if run is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payroll run not found")
+    if run.status != PayrollRunStatus.DRAFT:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only a DRAFT run can be re-run")
+
+    recompute_run_entries(db, run)
+    db.commit()
+
+    entries = db.execute(select(PayrollRunEntry).where(PayrollRunEntry.payroll_run_id == run_id)).scalars().all()
+    employee_names = {e.id: e.full_name for e in db.execute(select(Employee)).scalars().all()}
+    base = _run_out(db, run)
+    return PayrollRunDetailOut(**base.model_dump(), entries=[_entry_out(db, e, employee_names) for e in entries])
 
 
 @router.post("/runs/auto-generate", response_model=AutoGeneratePayrollResponse, status_code=status.HTTP_201_CREATED)

@@ -5,7 +5,7 @@ from datetime import date
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.enums import CalculationType, ComponentType, EmployeeRole, PayrollRunEntryStatus
+from app.enums import CalculationType, ComponentType, EmployeeRole, PayrollRunEntryStatus, PayslipStatus
 from app.models import (
     Employee,
     EmployeeSalaryAssignment,
@@ -219,6 +219,38 @@ def generate_payslips_for_run(db: Session, run: PayrollRun, template: PayslipTem
         db.add(payslip)
         created.append(payslip)
     return created
+
+
+def recompute_run_entries(db: Session, run: PayrollRun) -> list[PayrollRunEntry]:
+    """Re-resolves every entry's gross_amount (and any still-DRAFT payslip's gross_pay/net_pay/
+    line_items) against whichever salary assignment is in effect now for this run's period.
+    Entries only ever get their figures snapshotted once at run-creation time otherwise -- this is
+    the escape hatch for when an assignment was created, corrected, or only became resolvable
+    (e.g. its structure had no components yet) after the run already existed. Never touches an
+    entry whose payslip has already been APPROVED -- that's final, not something a "re-run" should
+    silently rewrite. Caller commits."""
+    period_end = period_end_date(run.period_month, run.period_year)
+    entries = db.execute(select(PayrollRunEntry).where(PayrollRunEntry.payroll_run_id == run.id)).scalars().all()
+    components_by_id = {c.id: c for c in db.execute(select(SalaryComponent)).scalars().all()}
+
+    updated: list[PayrollRunEntry] = []
+    for entry in entries:
+        payslip = db.execute(select(Payslip).where(Payslip.payroll_run_entry_id == entry.id)).scalars().first()
+        if payslip is not None and payslip.status != PayslipStatus.DRAFT:
+            continue
+
+        assignment = get_assignment_as_of(db, entry.employee_id, period_end)
+        values = get_resolved_component_values(db, assignment.id) if assignment else []
+        entry.salary_structure_id = assignment.salary_structure_id if assignment else None
+        entry.gross_amount = compute_gross_amount(values, components_by_id)
+
+        if payslip is not None:
+            payslip.gross_pay = compute_gross_amount(values, components_by_id)
+            payslip.net_pay = compute_net_amount(values, components_by_id)
+            payslip.line_items = build_payslip_line_items(values, components_by_id)
+
+        updated.append(entry)
+    return updated
 
 
 @dataclass
