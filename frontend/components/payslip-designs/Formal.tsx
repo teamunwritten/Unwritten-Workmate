@@ -1,5 +1,5 @@
 import { Payslip } from "@/lib/types";
-import { MONTHS, companyBranding, employerFooterLines, formatCurrency, formatDate } from "@/lib/payslipFormat";
+import { MONTHS, amountInWords, companyBranding, employerFooterLines, formatCurrency, formatDate } from "@/lib/payslipFormat";
 
 export default function FormalDesign({ payslip }: { payslip: Payslip }) {
   const earnings = payslip.line_items.filter((i) => i.component_type === "EARNING");
@@ -82,6 +82,7 @@ export default function FormalDesign({ payslip }: { payslip: Payslip }) {
         </table>
 
         <div className="text-right text-[14px] font-bold py-3">Net Pay: {formatCurrency(payslip.net_pay)}</div>
+        <p className="text-right text-[10px] italic text-[#6b7280] -mt-2 mb-2">{amountInWords(payslip.net_pay)}</p>
 
         <div className="flex justify-between items-end mt-16 text-[11.5px]">
           <div>

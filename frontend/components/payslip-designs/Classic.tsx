@@ -1,5 +1,5 @@
 import { Payslip } from "@/lib/types";
-import { MONTHS, companyBranding, employerFooterLines, formatCurrency, formatDate } from "@/lib/payslipFormat";
+import { MONTHS, amountInWords, companyBranding, employerFooterLines, formatCurrency, formatDate } from "@/lib/payslipFormat";
 
 export default function ClassicDesign({ payslip }: { payslip: Payslip }) {
   const earnings = payslip.line_items.filter((i) => i.component_type === "EARNING");
@@ -110,6 +110,7 @@ export default function ClassicDesign({ payslip }: { payslip: Payslip }) {
           <span className="text-[13px] font-semibold text-white tracking-wide">Net Pay</span>
           <span className="text-[17px] font-bold text-white tabular-nums">{formatCurrency(payslip.net_pay)}</span>
         </div>
+        <p className="mt-1.5 text-[10px] text-[#9ca3af] italic">{amountInWords(payslip.net_pay)}</p>
       </div>
 
       <div className="px-10 pb-8 pt-2 space-y-1.5">

@@ -1,5 +1,5 @@
 import { Payslip } from "@/lib/types";
-import { MONTHS, companyBranding, employerFooterLines, formatCurrency } from "@/lib/payslipFormat";
+import { MONTHS, amountInWords, companyBranding, employerFooterLines, formatCurrency } from "@/lib/payslipFormat";
 
 export default function CompactDesign({ payslip }: { payslip: Payslip }) {
   const { companyName, logoDataUrl } = companyBranding(payslip.header_config);
@@ -69,6 +69,7 @@ export default function CompactDesign({ payslip }: { payslip: Payslip }) {
         <span>Net Pay</span>
         <span className="tabular-nums text-[13px]">{formatCurrency(payslip.net_pay)}</span>
       </div>
+      <div className="px-4 pb-1 text-[8.5px] italic text-[#9ca3af]">{amountInWords(payslip.net_pay)}</div>
 
       {payslip.footer_note && <div className="px-4 pb-1 text-[9.5px] text-[#9ca3af]">{payslip.footer_note}</div>}
       {employerFooter.legal && <div className="px-4 text-[9px] text-[#9ca3af]">{employerFooter.legal}</div>}

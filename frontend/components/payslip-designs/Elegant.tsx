@@ -1,5 +1,5 @@
 import { Payslip } from "@/lib/types";
-import { MONTHS, companyBranding, employerFooterLines, formatCurrency, formatDate } from "@/lib/payslipFormat";
+import { MONTHS, amountInWords, companyBranding, employerFooterLines, formatCurrency, formatDate } from "@/lib/payslipFormat";
 
 export default function ElegantDesign({ payslip }: { payslip: Payslip }) {
   const earnings = payslip.line_items.filter((i) => i.component_type === "EARNING");
@@ -81,6 +81,7 @@ export default function ElegantDesign({ payslip }: { payslip: Payslip }) {
           <span className="text-[11px] uppercase tracking-[0.2em]">Net Pay</span>
           <span className="text-[22px] font-serif tabular-nums">{formatCurrency(payslip.net_pay)}</span>
         </div>
+        <p className="text-center text-[9.5px] italic text-[#a39c8c] mt-1.5">{amountInWords(payslip.net_pay)}</p>
       </div>
 
       <div className="text-center space-y-1 pt-2">

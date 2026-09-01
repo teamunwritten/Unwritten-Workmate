@@ -1,5 +1,5 @@
 import { Payslip } from "@/lib/types";
-import { MONTHS, companyBranding, employerFooterLines, formatCurrency, formatDate } from "@/lib/payslipFormat";
+import { MONTHS, amountInWords, companyBranding, employerFooterLines, formatCurrency, formatDate } from "@/lib/payslipFormat";
 
 export default function MinimalDesign({ payslip }: { payslip: Payslip }) {
   const { companyName, companyTagline, logoDataUrl } = companyBranding(payslip.header_config);
@@ -52,6 +52,7 @@ export default function MinimalDesign({ payslip }: { payslip: Payslip }) {
         <span className="text-[13px] tracking-wide uppercase text-[#9aa0aa]">Net Pay</span>
         <span className="text-[24px] font-light tabular-nums">{formatCurrency(payslip.net_pay)}</span>
       </div>
+      <p className="text-right text-[9.5px] italic text-[#c1c6cf] mt-1">{amountInWords(payslip.net_pay)}</p>
 
       <div className="mt-14 space-y-1 text-center">
         <p className="text-[10.5px] text-[#c1c6cf] leading-relaxed max-w-md mx-auto">

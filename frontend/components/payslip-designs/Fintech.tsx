@@ -1,5 +1,5 @@
 import { Payslip } from "@/lib/types";
-import { MONTHS, companyBranding, employerFooterLines, formatCurrency, formatDate } from "@/lib/payslipFormat";
+import { MONTHS, amountInWords, companyBranding, employerFooterLines, formatCurrency, formatDate } from "@/lib/payslipFormat";
 
 export default function FintechDesign({ payslip }: { payslip: Payslip }) {
   const { companyName, logoDataUrl } = companyBranding(payslip.header_config);
@@ -32,6 +32,7 @@ export default function FintechDesign({ payslip }: { payslip: Payslip }) {
           Payslip for {MONTHS[payslip.period_month - 1]} {payslip.period_year}
         </div>
         <div className="text-[30px] font-bold tabular-nums mt-1">{formatCurrency(payslip.net_pay)}</div>
+        <div className="text-[10px] text-[#94a3b8] italic mt-0.5">{amountInWords(payslip.net_pay)}</div>
         <div className="text-[11px] text-[#94a3b8] mt-1">
           Paid to {payslip.employee_name} · {payslip.reference_number}
         </div>

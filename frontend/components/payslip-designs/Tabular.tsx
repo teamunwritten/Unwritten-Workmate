@@ -1,5 +1,5 @@
 import { Payslip } from "@/lib/types";
-import { MONTHS, companyBranding, employerFooterLines, formatCurrency, formatDate } from "@/lib/payslipFormat";
+import { MONTHS, amountInWords, companyBranding, employerFooterLines, formatCurrency, formatDate } from "@/lib/payslipFormat";
 
 const CELL = "border border-[#333] px-2.5 py-1.5";
 const LABEL = `${CELL} bg-[#f0f0f0] text-[#333] font-medium w-1/6`;
@@ -90,6 +90,9 @@ export default function TabularDesign({ payslip }: { payslip: Payslip }) {
               Net Pay
             </td>
             <td className={`${CELL} text-right tabular-nums`}>{formatCurrency(payslip.net_pay)}</td>
+          </tr>
+          <tr>
+            <td colSpan={4} className={`${CELL} text-[9.5px] text-[#555] italic text-right`}>{amountInWords(payslip.net_pay)}</td>
           </tr>
           <tr>
             <td colSpan={4} className={`${CELL} text-[10px] text-[#555] italic`}>

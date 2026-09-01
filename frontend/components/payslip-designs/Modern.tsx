@@ -1,5 +1,5 @@
 import { Payslip } from "@/lib/types";
-import { MONTHS, companyBranding, employerFooterLines, formatCurrency, formatDate } from "@/lib/payslipFormat";
+import { MONTHS, amountInWords, companyBranding, employerFooterLines, formatCurrency, formatDate } from "@/lib/payslipFormat";
 
 export default function ModernDesign({ payslip }: { payslip: Payslip }) {
   const earnings = payslip.line_items.filter((i) => i.component_type === "EARNING");
@@ -38,6 +38,7 @@ export default function ModernDesign({ payslip }: { payslip: Payslip }) {
           </div>
           <div className="text-[26px] font-bold mt-1">{formatCurrency(payslip.net_pay)}</div>
           <div className="text-[11.5px] text-white/70">Net Pay for {payslip.employee_name}</div>
+          <div className="text-[9.5px] text-white/50 italic mt-1">{amountInWords(payslip.net_pay)}</div>
         </div>
       </div>
 

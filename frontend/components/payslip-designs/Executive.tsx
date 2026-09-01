@@ -1,5 +1,5 @@
 import { Payslip } from "@/lib/types";
-import { MONTHS, companyBranding, employerFooterLines, formatCurrency, formatDate } from "@/lib/payslipFormat";
+import { MONTHS, amountInWords, companyBranding, employerFooterLines, formatCurrency, formatDate } from "@/lib/payslipFormat";
 
 export default function ExecutiveDesign({ payslip }: { payslip: Payslip }) {
   const earnings = payslip.line_items.filter((i) => i.component_type === "EARNING");
@@ -67,6 +67,7 @@ export default function ExecutiveDesign({ payslip }: { payslip: Payslip }) {
           <span className="text-[11px] uppercase tracking-wide text-[#9ca3af]">Gross to Net</span>
           <span className="text-[24px] font-bold tabular-nums">{formatCurrency(payslip.net_pay)}</span>
         </div>
+        <p className="text-[9.5px] italic text-[#9ca3af] -mt-2 mb-2.5">{amountInWords(payslip.net_pay)}</p>
         <div className="h-2.5 rounded-full overflow-hidden bg-[#f1f5f9] flex">
           <div className="h-full bg-[#111827]" style={{ width: `${netPct}%` }} />
           <div className="h-full bg-[#e5e7eb]" style={{ width: `${deductPct}%` }} />

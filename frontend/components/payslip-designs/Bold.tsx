@@ -1,5 +1,5 @@
 import { Payslip } from "@/lib/types";
-import { MONTHS, companyBranding, employerFooterLines, formatCurrency, formatDate } from "@/lib/payslipFormat";
+import { MONTHS, amountInWords, companyBranding, employerFooterLines, formatCurrency, formatDate } from "@/lib/payslipFormat";
 
 export default function BoldDesign({ payslip }: { payslip: Payslip }) {
   const earnings = payslip.line_items.filter((i) => i.component_type === "EARNING");
@@ -35,6 +35,7 @@ export default function BoldDesign({ payslip }: { payslip: Payslip }) {
           </span>
           <span className="text-[12px] font-semibold text-[#64748b] uppercase tracking-wide">Net Pay</span>
         </div>
+        <p className="mt-1 text-[10px] text-[#94a3b8] italic">{amountInWords(payslip.net_pay)}</p>
         <div className="flex gap-6 mt-3 text-[11.5px] text-[#64748b]">
           <span>
             {payslip.employee_code} · {payslip.position || "—"}

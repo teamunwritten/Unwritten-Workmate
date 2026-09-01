@@ -1,5 +1,5 @@
 import { Payslip } from "@/lib/types";
-import { MONTHS, companyBranding, employerFooterLines, formatCurrency, formatDate } from "@/lib/payslipFormat";
+import { MONTHS, amountInWords, companyBranding, employerFooterLines, formatCurrency, formatDate } from "@/lib/payslipFormat";
 
 export default function SplitDesign({ payslip }: { payslip: Payslip }) {
   const earnings = payslip.line_items.filter((i) => i.component_type === "EARNING");
@@ -102,6 +102,7 @@ export default function SplitDesign({ payslip }: { payslip: Payslip }) {
           <span className="text-[12.5px] font-semibold text-[#0c1e3d]">Net Pay</span>
           <span className="text-[19px] font-bold tabular-nums text-[#0c1e3d]">{formatCurrency(payslip.net_pay)}</span>
         </div>
+        <p className="text-[9.5px] italic text-[#9ca3af] mt-1">{amountInWords(payslip.net_pay)}</p>
 
         <div className="mt-6 space-y-1">
           <p className="text-[10px] text-[#9ca3af] leading-relaxed">
