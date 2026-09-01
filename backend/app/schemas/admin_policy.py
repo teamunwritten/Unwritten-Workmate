@@ -128,6 +128,11 @@ class DepartmentOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class DepartmentCreate(BaseModel):
+    name: str
+    parent_department_id: int | None = None
+
+
 class EmployeeCreate(BaseModel):
     employee_code: str
     full_name: str

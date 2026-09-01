@@ -19,6 +19,7 @@ from app.models import (
     PolicyVersion,
 )
 from app.schemas.admin_policy import (
+    DepartmentCreate,
     DepartmentOut,
     EligibilityRuleCreate,
     EmployeeCreate,
@@ -82,6 +83,22 @@ def update_org_settings(payload: OrgSettingsUpdate, db: DbSession, admin: AdminE
 def list_departments(db: DbSession, _: CurrentEmployee):
     # Department names/ids carry no PII -- also read by the org chart, visible to every employee.
     return db.execute(select(Department)).scalars().all()
+
+
+@router.post("/departments", response_model=DepartmentOut, status_code=status.HTTP_201_CREATED)
+def create_department(payload: DepartmentCreate, db: DbSession, admin: AdminEmployee):
+    if db.execute(select(Department).where(Department.name == payload.name)).scalars().first():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A department with this name already exists")
+    if payload.parent_department_id is not None:
+        _validate_department_exists(db, payload.parent_department_id)
+
+    department = Department(name=payload.name, parent_department_id=payload.parent_department_id)
+    db.add(department)
+    db.flush()
+    write_audit_entry(db, "department", department.id, "DEPARTMENT_CREATED", admin.id, after_value=payload.model_dump(mode="json"))
+    db.commit()
+    db.refresh(department)
+    return department
 
 
 # ---------- Employees ----------

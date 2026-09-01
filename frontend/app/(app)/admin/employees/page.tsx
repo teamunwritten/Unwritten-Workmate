@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createEmployee, listDepartments, listEmployees } from "@/lib/api/admin";
+import { createDepartment, createEmployee, listDepartments, listEmployees } from "@/lib/api/admin";
 import { Department, Employee, EmployeeRole, roleLabel } from "@/lib/types";
 import Icon from "@/components/Icon";
 import EmployeeDirectoryTable, { EmployeeDirectoryTableHandle } from "@/components/EmployeeDirectoryTable";
@@ -35,6 +35,11 @@ export default function AdminEmployeesPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const tableRef = useRef<EmployeeDirectoryTableHandle>(null);
+
+  const [showDeptForm, setShowDeptForm] = useState(false);
+  const [deptForm, setDeptForm] = useState({ name: "", parent_department_id: "" });
+  const [deptError, setDeptError] = useState<string | null>(null);
+  const [deptSubmitting, setDeptSubmitting] = useState(false);
 
   async function load() {
     const [emps, depts] = await Promise.all([listEmployees(), listDepartments()]);
@@ -74,6 +79,25 @@ export default function AdminEmployeesPage() {
     }
   }
 
+  async function handleAddDepartment(e: React.FormEvent) {
+    e.preventDefault();
+    setDeptError(null);
+    setDeptSubmitting(true);
+    try {
+      await createDepartment({
+        name: deptForm.name.trim(),
+        parent_department_id: deptForm.parent_department_id ? Number(deptForm.parent_department_id) : null,
+      });
+      setDeptForm({ name: "", parent_department_id: "" });
+      setShowDeptForm(false);
+      await load();
+    } catch (err: any) {
+      setDeptError(err.message);
+    } finally {
+      setDeptSubmitting(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -85,6 +109,59 @@ export default function AdminEmployeesPage() {
           <Icon name="apply" className="h-4 w-4" />
           {showForm ? "Close" : "Add"}
         </button>
+      </div>
+
+      <div className="card p-5 space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <h2 className="text-sm font-semibold">Departments</h2>
+          <button className="btn-secondary text-sm flex items-center gap-1.5" onClick={() => setShowDeptForm((v) => !v)}>
+            <Icon name="apply" className="h-4 w-4" />
+            {showDeptForm ? "Close" : "Add department"}
+          </button>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {departments.map((d) => (
+            <span key={d.id} className="badge bg-canvas text-muted">
+              {d.name}
+              {d.parent_department_id != null && (
+                <span> · under {departments.find((p) => p.id === d.parent_department_id)?.name ?? "?"}</span>
+              )}
+            </span>
+          ))}
+          {departments.length === 0 && <span className="text-sm text-muted">No departments yet.</span>}
+        </div>
+
+        {showDeptForm && (
+          <form onSubmit={handleAddDepartment} className="grid grid-cols-2 gap-4 pt-2 border-t border-border">
+            <Field label="Name">
+              <input
+                className="input"
+                required
+                value={deptForm.name}
+                onChange={(e) => setDeptForm({ ...deptForm, name: e.target.value })}
+              />
+            </Field>
+            <Field label="Parent department (optional)">
+              <select
+                className="input"
+                value={deptForm.parent_department_id}
+                onChange={(e) => setDeptForm({ ...deptForm, parent_department_id: e.target.value })}
+              >
+                <option value="">None</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+            </Field>
+            {deptError && <div className="col-span-2 text-sm text-danger">{deptError}</div>}
+            <div className="col-span-2">
+              <button type="submit" disabled={deptSubmitting} className="btn-primary">
+                {deptSubmitting ? "Creating..." : "Create department"}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
 
       {showForm && (

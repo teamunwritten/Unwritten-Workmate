@@ -17,6 +17,8 @@ export const getOrgSettings = () => apiGet<OrgSettings>("/admin/org-settings");
 export const updateOrgSettings = (payload: Partial<OrgSettings>) => apiPatch<OrgSettings>("/admin/org-settings", payload);
 
 export const listDepartments = () => apiGet<Department[]>("/admin/departments");
+export const createDepartment = (payload: { name: string; parent_department_id?: number | null }) =>
+  apiPost<Department>("/admin/departments", payload);
 
 export const listEmployees = () => apiGet<Employee[]>("/admin/employees");
 export const listEmployeeDirectory = (params: PageQuery) =>
