@@ -1,18 +1,15 @@
-name: Build & deploy Workmate
+name: Build & deploy Workmate (dev)
 
 on:
   push:
-    branches: [main]
+    branches: [develop]
 
 concurrency:
-  group: workmate-deploy
+  group: workmate-deploy-dev
   cancel-in-progress: true
 
 jobs:
   build-and-deploy:
-    # Use GitHub-hosted runners so jobs start immediately. For a private
-    # cluster builder instead, switch to runs-on: self-hosted and ensure a
-    # runner is online (Settings → Actions → Runners).
     runs-on: ubuntu-latest
 
     steps:
@@ -32,7 +29,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Set image tag
-        run: echo "IMAGE_TAG=${GITHUB_SHA}" >> "$GITHUB_ENV"
+        run: echo "IMAGE_TAG=dev-${GITHUB_SHA}" >> "$GITHUB_ENV"
 
       - name: Build & push API image
         uses: docker/build-push-action@v5
@@ -42,7 +39,6 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/unwritten-workmate-api:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/unwritten-workmate-api:${{ env.IMAGE_TAG }}
 
       - name: Build & push web image
@@ -53,7 +49,6 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/unwritten-workmate-web:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/unwritten-workmate-web:${{ env.IMAGE_TAG }}
 
       - name: Checkout cluster-config
@@ -77,7 +72,7 @@ jobs:
 
       - name: Update Kubernetes manifests
         run: |
-          APP_PATH="cluster-config/apps/workmate"
+          APP_PATH="cluster-config/apps/workmate-dev"
           echo "Updating images to tag: $IMAGE_TAG"
 
           yq -i '
@@ -90,11 +85,20 @@ jobs:
             .spec.template.spec.containers[0].image) = "'"${{ secrets.DOCKERHUB_USERNAME }}/unwritten-workmate-web:${IMAGE_TAG}"'"
           ' "$APP_PATH/04-frontend.yaml"
 
+      - name: Wake the dev instance back up
+        run: |
+          APP_PATH="cluster-config/apps/workmate-dev"
+          # A prior promotion scales these to 0 to kill the idle dev instance. A fresh push
+          # to develop means someone wants dev running again, so bring it back up.
+          yq -i '(select(.kind == "Deployment" and .metadata.name == "mysql") .spec.replicas) = 1' "$APP_PATH/02-mysql.yaml"
+          yq -i '(select(.kind == "Deployment" and .metadata.name == "workmate-api") .spec.replicas) = 1' "$APP_PATH/03-backend-deployment.yaml"
+          yq -i '(select(.kind == "Deployment" and .metadata.name == "workmate-frontend") .spec.replicas) = 1' "$APP_PATH/04-frontend.yaml"
+
       - name: Commit & push cluster-config
         run: |
           cd cluster-config
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add apps/workmate/03-backend-deployment.yaml apps/workmate/04-frontend.yaml
-          git commit -m "Deploy workmate: ${IMAGE_TAG}" || echo "No changes to commit"
+          git add apps/workmate-dev/02-mysql.yaml apps/workmate-dev/03-backend-deployment.yaml apps/workmate-dev/04-frontend.yaml
+          git commit -m "Deploy workmate-dev: ${IMAGE_TAG}" || echo "No changes to commit"
           git push

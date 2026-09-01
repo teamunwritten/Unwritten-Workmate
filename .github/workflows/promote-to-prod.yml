@@ -1,0 +1,78 @@
+name: Promote Workmate dev to production
+
+# Manual only — this never rebuilds an image. It reads whatever tag is currently
+# deployed to workmate-dev and writes that exact same tag into the prod manifests,
+# so production always runs the identical artifact that was verified in dev.
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: workmate-deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout cluster-config
+        uses: actions/checkout@v4
+        with:
+          repository: teamunwritten/cluster-config
+          token: ${{ secrets.PAT_TOKEN }}
+          path: cluster-config
+
+      - name: Install yq
+        run: |
+          ARCH=$(uname -m)
+          if [ "$ARCH" = "aarch64" ]; then
+            BIN="yq_linux_arm64"
+          else
+            BIN="yq_linux_amd64"
+          fi
+          sudo curl -sSL "https://github.com/mikefarah/yq/releases/latest/download/${BIN}" -o /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+          yq --version
+
+      - name: Read current dev image tags
+        id: dev
+        run: |
+          cd cluster-config
+          API_IMAGE=$(yq '(select(.kind == "Deployment" and .metadata.name == "workmate-api") | .spec.template.spec.containers[0].image)' apps/workmate-dev/03-backend-deployment.yaml)
+          WEB_IMAGE=$(yq '(select(.kind == "Deployment" and .metadata.name == "workmate-frontend") | .spec.template.spec.containers[0].image)' apps/workmate-dev/04-frontend.yaml)
+          echo "api_image=$API_IMAGE" >> "$GITHUB_OUTPUT"
+          echo "web_image=$WEB_IMAGE" >> "$GITHUB_OUTPUT"
+          echo "Promoting api image: $API_IMAGE"
+          echo "Promoting web image: $WEB_IMAGE"
+
+      - name: Write dev image tags into prod manifests
+        run: |
+          cd cluster-config
+          yq -i '
+            (select(.kind == "Deployment" and .metadata.name == "workmate-api")
+            .spec.template.spec.containers[0].image) = "${{ steps.dev.outputs.api_image }}"
+          ' apps/workmate/03-backend-deployment.yaml
+
+          yq -i '
+            (select(.kind == "Deployment" and .metadata.name == "workmate-frontend")
+            .spec.template.spec.containers[0].image) = "${{ steps.dev.outputs.web_image }}"
+          ' apps/workmate/04-frontend.yaml
+
+      - name: Kill the dev instance
+        run: |
+          cd cluster-config
+          # Promoted — dev has done its job. Scale it to 0 (not delete the namespace) so the
+          # PVC/DB/secrets survive for the next `develop` push, which scales it back up.
+          yq -i '(select(.kind == "Deployment" and .metadata.name == "mysql") .spec.replicas) = 0' apps/workmate-dev/02-mysql.yaml
+          yq -i '(select(.kind == "Deployment" and .metadata.name == "workmate-api") .spec.replicas) = 0' apps/workmate-dev/03-backend-deployment.yaml
+          yq -i '(select(.kind == "Deployment" and .metadata.name == "workmate-frontend") .spec.replicas) = 0' apps/workmate-dev/04-frontend.yaml
+
+      - name: Commit & push cluster-config
+        run: |
+          cd cluster-config
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add apps/workmate/03-backend-deployment.yaml apps/workmate/04-frontend.yaml \
+                  apps/workmate-dev/02-mysql.yaml apps/workmate-dev/03-backend-deployment.yaml apps/workmate-dev/04-frontend.yaml
+          git commit -m "Promote workmate to prod: ${{ steps.dev.outputs.api_image }} (dev scaled down)" || echo "No changes to commit"
+          git push
