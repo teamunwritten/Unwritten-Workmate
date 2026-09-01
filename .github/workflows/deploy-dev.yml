@@ -10,15 +10,19 @@ concurrency:
 
 jobs:
   build-and-deploy:
-    # Self-hosted, running on the cluster's own arm64 node -- builds natively for the node's
-    # actual architecture, no QEMU cross-compilation. QEMU-emulated npm installs on GitHub-hosted
-    # x86 runners were multi-minute and occasionally crashed outright ("Illegal instruction - core
-    # dumped"), taking the whole job down with them.
-    runs-on: self-hosted
+    # GitHub-hosted + QEMU, not self-hosted: the cluster's single arm64 node is already tight on
+    # resources running the actual apps -- an always-on runner pod competing for CPU/memory there
+    # isn't worth it just to speed up/de-flake CI. QEMU-emulated npm install is slower and has
+    # crashed outright at least once ("Illegal instruction - core dumped"), but that's an
+    # accepted, occasional cost; re-running the job is cheap.
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
