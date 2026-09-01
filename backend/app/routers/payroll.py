@@ -121,10 +121,10 @@ def update_payroll_run_status(run_id: int, payload: PayrollRunStatusUpdate, db: 
 @router.post("/runs/{run_id}/recompute", response_model=PayrollRunDetailOut)
 def recompute_payroll_run(run_id: int, db: DbSession, _: AdminEmployee):
     """Re-resolves every entry (and any still-DRAFT payslip) against whatever salary assignment
-    is in effect now -- for when an assignment was created, corrected, or only became resolvable
-    after this run already existed, so its entries are stuck showing stale/zero figures from
-    whenever they were last snapshotted. Only allowed while the run is still DRAFT; approved
-    payslips are never touched regardless."""
+    is in effect now, and adds an entry for any eligible employee the run doesn't have one for yet
+    -- for when an assignment was created, corrected, or only became resolvable after this run
+    already existed, or an employee was assigned/onboarded after the run was created. Only allowed
+    while the run is still DRAFT; approved payslips are never touched regardless."""
     run = db.get(PayrollRun, run_id)
     if run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payroll run not found")

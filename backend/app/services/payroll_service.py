@@ -223,7 +223,10 @@ def generate_payslips_for_run(db: Session, run: PayrollRun, template: PayslipTem
 
 def recompute_run_entries(db: Session, run: PayrollRun) -> list[PayrollRunEntry]:
     """Re-resolves every entry's gross_amount (and any still-DRAFT payslip's gross_pay/net_pay/
-    line_items) against whichever salary assignment is in effect now for this run's period.
+    line_items) against whichever salary assignment is in effect now for this run's period, and
+    also adds an entry for any eligible employee the run doesn't have one for yet -- same
+    eligibility as create_run_with_entries (active, already joined by this period, has a
+    resolvable assignment), for someone assigned/onboarded after the run was first created.
     Entries only ever get their figures snapshotted once at run-creation time otherwise -- this is
     the escape hatch for when an assignment was created, corrected, or only became resolvable
     (e.g. its structure had no components yet) after the run already existed. Never touches an
@@ -234,7 +237,9 @@ def recompute_run_entries(db: Session, run: PayrollRun) -> list[PayrollRunEntry]
     components_by_id = {c.id: c for c in db.execute(select(SalaryComponent)).scalars().all()}
 
     updated: list[PayrollRunEntry] = []
+    covered_employee_ids: set[int] = set()
     for entry in entries:
+        covered_employee_ids.add(entry.employee_id)
         payslip = db.execute(select(Payslip).where(Payslip.payroll_run_entry_id == entry.id)).scalars().first()
         if payslip is not None and payslip.status != PayslipStatus.DRAFT:
             continue
@@ -250,6 +255,25 @@ def recompute_run_entries(db: Session, run: PayrollRun) -> list[PayrollRunEntry]
             payslip.line_items = build_payslip_line_items(values, components_by_id)
 
         updated.append(entry)
+
+    employees = db.execute(select(Employee).where(Employee.is_active.is_(True))).scalars().all()
+    for employee in employees:
+        if employee.id in covered_employee_ids or employee.date_of_joining > period_end:
+            continue
+        assignment = get_assignment_as_of(db, employee.id, period_end)
+        if assignment is None:
+            continue
+        values = get_resolved_component_values(db, assignment.id)
+        new_entry = PayrollRunEntry(
+            payroll_run_id=run.id,
+            employee_id=employee.id,
+            salary_structure_id=assignment.salary_structure_id,
+            status=PayrollRunEntryStatus.INCLUDED,
+            gross_amount=compute_gross_amount(values, components_by_id),
+        )
+        db.add(new_entry)
+        updated.append(new_entry)
+
     return updated
 
 

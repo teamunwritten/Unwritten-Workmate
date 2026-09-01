@@ -60,7 +60,7 @@ export default function PayrollRunDetailPage() {
   async function handleRecompute() {
     if (!run) return;
     const ok = await confirm(
-      `Re-resolve every entry for ${MONTHS[run.period_month - 1]} ${run.period_year} against each employee's current salary assignment? Already-approved payslips are left untouched.`,
+      `Re-resolve every entry for ${MONTHS[run.period_month - 1]} ${run.period_year} against each employee's current salary assignment, and add anyone newly eligible who isn't in this run yet? Already-approved payslips are left untouched.`,
       { title: "Re-run payroll", confirmLabel: "Re-run" }
     );
     if (!ok) return;
