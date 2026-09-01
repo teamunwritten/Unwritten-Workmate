@@ -120,13 +120,21 @@ def get_assignment_as_of(db: Session, employee_id: int, as_of: date) -> Employee
     """Resolves whichever assignment was actually in effect on a given date -- unlike filtering on
     is_active (which only ever finds the current one), this also finds a since-superseded
     assignment, which a payroll run for a past period must use instead of whatever the employee's
-    CTC has since been changed to."""
+    CTC has since been changed to.
+
+    Ordered by effective_from/id descending (most recent first) and not just is_active, because
+    stale data (e.g. rows left over from before this ordering existed, where more than one ended
+    up flagged is_active with an open-ended effective_to) can otherwise satisfy this date range
+    more than once -- an unordered query would then pick whichever one the DB happened to return
+    first, which is not necessarily the one that's actually supposed to apply."""
     return db.execute(
-        select(EmployeeSalaryAssignment).where(
+        select(EmployeeSalaryAssignment)
+        .where(
             EmployeeSalaryAssignment.employee_id == employee_id,
             EmployeeSalaryAssignment.effective_from <= as_of,
             or_(EmployeeSalaryAssignment.effective_to.is_(None), EmployeeSalaryAssignment.effective_to > as_of),
         )
+        .order_by(EmployeeSalaryAssignment.effective_from.desc(), EmployeeSalaryAssignment.id.desc())
     ).scalars().first()
 
 

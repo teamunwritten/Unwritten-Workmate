@@ -239,25 +239,33 @@ def assign_salary_structure(employee_id: int, payload: EmployeeSalaryAssignmentC
             detail=f"Effective date can't be before the employee's date of joining ({employee.date_of_joining}).",
         )
 
-    existing = db.execute(
-        select(EmployeeSalaryAssignment).where(
+    # Every currently-active row, not just one -- an employee should only ever have a single
+    # active assignment, but if that invariant was ever violated (e.g. by a concurrent request, or
+    # by data predating this fix), closing only .first() would leave the rest dangling as
+    # is_active=True forever, each new reassignment perpetuating the mess rather than fixing it.
+    existing_rows = db.execute(
+        select(EmployeeSalaryAssignment)
+        .where(
             EmployeeSalaryAssignment.employee_id == employee_id,
             EmployeeSalaryAssignment.is_active.is_(True),
         )
-    ).scalars().first()
-    if existing is not None:
-        if payload.effective_from <= existing.effective_from:
-            # Closing the existing row at payload.effective_from would set effective_to before
-            # its own effective_from -- an inverted interval that get_assignment_as_of could never
+        .order_by(EmployeeSalaryAssignment.effective_from.desc())
+    ).scalars().all()
+    if existing_rows:
+        latest_effective_from = existing_rows[0].effective_from
+        if payload.effective_from <= latest_effective_from:
+            # Closing an existing row at payload.effective_from would set effective_to before its
+            # own effective_from -- an inverted interval that get_assignment_as_of could never
             # match, silently making this new row resolve for periods that belonged to a
             # different (possibly already-paid) assignment. A true historical correction isn't
             # what this endpoint does -- it only ever supersedes going forward.
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Effective date must be after the current assignment's effective date ({existing.effective_from}).",
+                detail=f"Effective date must be after the current assignment's effective date ({latest_effective_from}).",
             )
-        existing.is_active = False
-        existing.effective_to = payload.effective_from
+        for row in existing_rows:
+            row.is_active = False
+            row.effective_to = payload.effective_from
 
     assignment = EmployeeSalaryAssignment(employee_id=employee_id, **payload.model_dump())
     db.add(assignment)
