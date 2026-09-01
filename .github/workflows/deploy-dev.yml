@@ -2,7 +2,7 @@ name: Build & deploy Workmate (dev)
 
 on:
   push:
-    branches: [develop]
+    branches: [main]
 
 concurrency:
   group: workmate-deploy-dev
@@ -88,8 +88,8 @@ jobs:
       - name: Wake the dev instance back up
         run: |
           APP_PATH="cluster-config/apps/workmate-dev"
-          # A prior promotion scales these to 0 to kill the idle dev instance. A fresh push
-          # to develop means someone wants dev running again, so bring it back up.
+          # A prior promotion scales these to 0 to kill the idle dev instance. A fresh merge
+          # to main means someone wants dev running again, so bring it back up.
           yq -i '(select(.kind == "Deployment" and .metadata.name == "mysql") .spec.replicas) = 1' "$APP_PATH/02-mysql.yaml"
           yq -i '(select(.kind == "Deployment" and .metadata.name == "workmate-api") .spec.replicas) = 1' "$APP_PATH/03-backend-deployment.yaml"
           yq -i '(select(.kind == "Deployment" and .metadata.name == "workmate-frontend") .spec.replicas) = 1' "$APP_PATH/04-frontend.yaml"
