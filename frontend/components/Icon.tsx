@@ -29,6 +29,11 @@ const PATHS: Record<string, string> = {
   download: "M12 4v12m0 0l-5-5m5 5l5-5M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2",
   fileIcon: "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z M14 2v6h6",
   close: "M18 6L6 18M6 6l12 12",
+  wallet: "M3 7a2 2 0 012-2h13a2 2 0 012 2v2h-6a3 3 0 000 6h6v2a2 2 0 01-2 2H5a2 2 0 01-2-2V7zM17 11a1 1 0 100 2 1 1 0 000-2z",
+  receipt: "M6 2h12v20l-3-2-3 2-3-2-3 2V2zM8 7h8M8 11h8M8 15h5",
+  shield: "M12 2l8 3v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5z",
+  user: "M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z",
+  bank: "M3 21h18M4 21V9l8-5 8 5v12M9 21v-6h6v6",
 };
 
 export default function Icon({ name, className = "h-[18px] w-[18px]" }: { name: keyof typeof PATHS; className?: string }) {

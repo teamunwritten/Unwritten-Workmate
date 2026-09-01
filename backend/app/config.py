@@ -44,6 +44,10 @@ class Settings(BaseSettings):
     # Approve/Reject link buttons backed by signed tokens (see action_tokens.py) -- no Slack
     # App/Interactivity setup needed, just this single webhook URL. Leave blank to disable.
     slack_webhook_url: str = ""
+    # Shared secret an external scheduler (cron, GitHub Actions, etc.) presents in the
+    # X-Payroll-Cron-Secret header to call POST /payroll/runs/auto-generate without a user
+    # session. Left blank by default, which disables the endpoint entirely.
+    payroll_cron_secret: str = ""
 
     @property
     def email_company_legal_name(self) -> str:

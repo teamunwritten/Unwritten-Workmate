@@ -60,8 +60,8 @@ export default function ProfilePanel({ open, onClose, user }: { open: boolean; o
 
         <div className="p-4">
           <div className="card p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-md bg-sidebar-active flex items-center justify-center text-white text-sm font-bold shrink-0">
-              UW
+            <div className="h-10 w-10 rounded-md bg-white border border-border flex items-center justify-center shrink-0 overflow-hidden">
+              <img src="/logo-mark.svg" alt="" className="h-8 w-8 object-contain" />
             </div>
             <div className="min-w-0">
               <div className="text-sm font-semibold truncate">Unwritten Workmate</div>

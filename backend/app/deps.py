@@ -1,10 +1,11 @@
 from collections.abc import Generator
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import SessionLocal
 from app.enums import EmployeeRole
 from app.models import Employee
@@ -58,3 +59,14 @@ def require_admin(employee: CurrentEmployee) -> Employee:
 
 
 AdminEmployee = Annotated[Employee, Depends(require_admin)]
+
+
+def require_payroll_cron_secret(x_payroll_cron_secret: Annotated[str | None, Header()] = None) -> None:
+    """Lets an external scheduler (no user session) call the payroll auto-generate endpoint.
+    Disabled by default -- an unset secret always rejects, so the endpoint is inert until an
+    operator explicitly configures PAYROLL_CRON_SECRET."""
+    if not settings.payroll_cron_secret or x_payroll_cron_secret != settings.payroll_cron_secret:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or missing cron secret")
+
+
+PayrollCron = Annotated[None, Depends(require_payroll_cron_secret)]

@@ -89,3 +89,45 @@ class FileVisibility(str, enum.Enum):
     PRIVATE = "PRIVATE"
     EMPLOYEE = "EMPLOYEE"
     ORGANIZATION = "ORGANIZATION"
+
+
+class ComponentType(str, enum.Enum):
+    EARNING = "EARNING"
+    DEDUCTION = "DEDUCTION"
+
+
+class CalculationType(str, enum.Enum):
+    FIXED = "FIXED"
+    PERCENTAGE_OF_BASIC = "PERCENTAGE_OF_BASIC"
+    FORMULA = "FORMULA"
+
+
+class PayrollRunStatus(str, enum.Enum):
+    DRAFT = "DRAFT"
+    PROCESSING = "PROCESSING"
+    COMPLETED = "COMPLETED"
+
+
+class PayrollRunEntryStatus(str, enum.Enum):
+    PENDING = "PENDING"
+    INCLUDED = "INCLUDED"
+    EXCLUDED = "EXCLUDED"
+
+
+class PayslipStatus(str, enum.Enum):
+    DRAFT = "DRAFT"
+    APPROVED = "APPROVED"
+
+
+class PayslipDesign(str, enum.Enum):
+    CLASSIC = "CLASSIC"
+    MODERN = "MODERN"
+    MINIMAL = "MINIMAL"
+    FORMAL = "FORMAL"
+    COMPACT = "COMPACT"
+    BOLD = "BOLD"
+    ELEGANT = "ELEGANT"
+    FINTECH = "FINTECH"
+    SPLIT = "SPLIT"
+    TABULAR = "TABULAR"
+    EXECUTIVE = "EXECUTIVE"

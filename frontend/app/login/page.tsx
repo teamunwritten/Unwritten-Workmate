@@ -1,3 +1,5 @@
+import BrandMark from "@/components/BrandMark";
+
 function GoogleIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" aria-hidden="true">
@@ -34,15 +36,7 @@ export default function LoginPage({ searchParams }: { searchParams: { error?: st
           }}
         />
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
-          <div className="flex items-center gap-2.5">
-            <div className="h-9 w-9 rounded-lg bg-sidebar-active flex items-center justify-center text-white text-sm font-bold shrink-0">
-              UW
-            </div>
-            <div>
-              <div className="text-[15px] font-semibold text-white leading-tight">Unwritten Workmate</div>
-              <div className="text-[11.5px] text-white/50 leading-tight">Team Unwritten</div>
-            </div>
-          </div>
+          <BrandMark dark />
 
           <div className="space-y-8 max-w-sm">
             <div>

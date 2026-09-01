@@ -6,6 +6,17 @@ from app.models.files import FileAsset
 from app.models.holidays import EmployeeOptionalHolidayCap, Holiday, OptionalHolidayPick
 from app.models.leave_types import LeaveType
 from app.models.org import Department, Employee
+from app.models.payroll import (
+    EmployeeSalaryAssignment,
+    EmployeeSalaryComponentValue,
+    Payslip,
+    PayslipTemplate,
+    PayrollRun,
+    PayrollRunEntry,
+    SalaryComponent,
+    SalaryStructure,
+    SalaryStructureComponent,
+)
 from app.models.policy import (
     LeavePolicy,
     LeaveTypeEligibilityRule,
@@ -37,4 +48,13 @@ __all__ = [
     "DayRequest",
     "DayRequestSession",
     "LeaveApplication",
+    "SalaryComponent",
+    "SalaryStructure",
+    "SalaryStructureComponent",
+    "EmployeeSalaryAssignment",
+    "EmployeeSalaryComponentValue",
+    "PayrollRun",
+    "PayrollRunEntry",
+    "PayslipTemplate",
+    "Payslip",
 ]

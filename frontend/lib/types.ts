@@ -266,3 +266,174 @@ export interface LeavePolicy {
 export interface OrgSettings {
   requires_second_level_approval: boolean;
 }
+
+export type ComponentType = "EARNING" | "DEDUCTION";
+export type CalculationType = "FIXED" | "PERCENTAGE_OF_BASIC" | "FORMULA";
+export type PayrollRunStatus = "DRAFT" | "PROCESSING" | "COMPLETED";
+export type PayrollRunEntryStatus = "PENDING" | "INCLUDED" | "EXCLUDED";
+
+export interface SalaryComponent {
+  id: number;
+  code: string;
+  name: string;
+  component_type: ComponentType;
+  calculation_type: CalculationType;
+  percentage_of_basic: number | null;
+  is_taxable: boolean;
+  is_active: boolean;
+}
+
+export interface SalaryStructureComponent {
+  id: number;
+  salary_component_id: number;
+  component_code: string;
+  component_name: string;
+  component_type: ComponentType;
+  calculation_type: CalculationType;
+  default_value: number | null;
+  display_order: number;
+}
+
+export interface SalaryStructure {
+  id: number;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  components: SalaryStructureComponent[];
+}
+
+export interface ResolvedComponentValue {
+  salary_component_id: number;
+  component_code: string;
+  component_name: string;
+  component_type: ComponentType;
+  resolved_value: number;
+}
+
+export interface EmployeeSalaryAssignment {
+  id: number;
+  employee_id: number;
+  salary_structure_id: number;
+  salary_structure_name: string;
+  effective_from: string;
+  effective_to: string | null;
+  annual_ctc: number;
+  is_active: boolean;
+  component_values: ResolvedComponentValue[];
+}
+
+export interface EmployeeSalaryAssignmentSummary {
+  employee_id: number;
+  employee_name: string;
+  employee_code: string;
+  salary_structure_id: number;
+  salary_structure_name: string;
+  annual_ctc: number;
+  effective_from: string;
+}
+
+export interface PayrollRun {
+  id: number;
+  period_month: number;
+  period_year: number;
+  status: PayrollRunStatus;
+  run_date: string | null;
+  created_at: string;
+  entry_count: number;
+}
+
+export interface PayrollRunEntry {
+  id: number;
+  employee_id: number;
+  employee_name: string;
+  salary_structure_id: number | null;
+  status: PayrollRunEntryStatus;
+  gross_amount: number | null;
+  payslip_id: number | null;
+  payslip_status: "DRAFT" | "APPROVED" | null;
+}
+
+export interface PayrollRunDetail extends PayrollRun {
+  entries: PayrollRunEntry[];
+}
+
+export interface PayslipHeaderConfig {
+  company_name?: string;
+  company_tagline?: string;
+  company_legal_name?: string;
+  company_pan?: string;
+  registered_office_address?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  logo_data_url?: string;
+}
+
+export type PayslipDesign =
+  | "CLASSIC"
+  | "MODERN"
+  | "MINIMAL"
+  | "FORMAL"
+  | "COMPACT"
+  | "BOLD"
+  | "ELEGANT"
+  | "FINTECH"
+  | "SPLIT"
+  | "TABULAR"
+  | "EXECUTIVE";
+
+export const PAYSLIP_DESIGN_LABELS: Record<PayslipDesign, string> = {
+  CLASSIC: "Classic Ledger",
+  MODERN: "Modern Card",
+  MINIMAL: "Minimal",
+  FORMAL: "Corporate Formal",
+  COMPACT: "Compact",
+  BOLD: "Bold Branded",
+  ELEGANT: "Elegant Mono",
+  FINTECH: "Fintech Statement",
+  SPLIT: "Split Sidebar",
+  TABULAR: "Tabular Grid",
+  EXECUTIVE: "Executive Summary",
+};
+
+export interface PayslipTemplate {
+  id: number;
+  name: string;
+  is_default: boolean;
+  design: PayslipDesign;
+  header_config: PayslipHeaderConfig | null;
+  footer_note: string | null;
+  is_active: boolean;
+}
+
+export interface PayslipLineItem {
+  component_code: string;
+  component_name: string;
+  component_type: string;
+  value: number;
+}
+
+export type PayslipStatus = "DRAFT" | "APPROVED";
+
+export interface Payslip {
+  id: number;
+  reference_number: string;
+  payroll_run_entry_id: number;
+  employee_id: number;
+  employee_name: string;
+  employee_code: string;
+  position: string | null;
+  department_name: string | null;
+  payslip_template_id: number;
+  design: PayslipDesign;
+  header_config: PayslipHeaderConfig | null;
+  footer_note: string | null;
+  generated_at: string;
+  period_month: number;
+  period_year: number;
+  gross_pay: number;
+  net_pay: number;
+  line_items: PayslipLineItem[];
+  status: PayslipStatus;
+  approved_at: string | null;
+  approved_by_name: string | null;
+}

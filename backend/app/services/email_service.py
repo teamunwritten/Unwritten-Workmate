@@ -16,7 +16,7 @@ from email.utils import formataddr
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.models import DayRequest, Department, Employee, EmployeeLeaveBalance, LeaveApplication, LeaveType
+from app.models import DayRequest, Department, Employee, EmployeeLeaveBalance, LeaveApplication, LeaveType, Payslip, PayrollRun
 from app.services.accrual_service import compute_available_balance
 from app.services.email_templates import ActionButton, DetailRow, EmailAction, render_leave_notification_email
 
@@ -166,5 +166,40 @@ def send_leave_cancelled_email(
         to_email=approver.email,
         cc_email=applicant.email,
         subject=f"{applicant.full_name} cancelled an approved leave",
+        html=html,
+    )
+
+
+MONTH_NAMES = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+]
+
+
+def send_payslip_ready_email(db: Session, employee: Employee, payslip: Payslip, run: PayrollRun) -> None:
+    period_label = f"{MONTH_NAMES[run.period_month - 1]} {run.period_year}"
+    payslips_url = f"{settings.app_base_url}/ess/payslips"
+    rows = [
+        DetailRow("Employee", f"{employee.full_name} &nbsp;·&nbsp; {employee.employee_code}"),
+        DetailRow("Pay Period", period_label),
+        DetailRow("Gross Pay", f"₹{float(payslip.gross_pay):,.2f}"),
+        DetailRow("Net Pay", f"<strong style=\"color:#111827;\">₹{float(payslip.net_pay):,.2f}</strong>"),
+    ]
+    html = render_leave_notification_email(
+        request_id=payslip.id,
+        title="Payslip Ready",
+        intro_html=f"Your payslip for {period_label} has been approved and is now available.",
+        status="APPROVED",
+        rows=rows,
+        action=EmailAction(
+            buttons=[ActionButton(label="View Payslip", url=payslips_url, primary=True)],
+            footer_link_url=payslips_url,
+            footer_link_label="My Payslips",
+        ),
+    )
+    _send(
+        to_email=employee.email,
+        cc_email=None,
+        subject=f"Your payslip for {period_label} is ready",
         html=html,
     )

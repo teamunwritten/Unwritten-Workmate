@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { CurrentUser, roleLabel } from "@/lib/types";
 import Icon from "@/components/Icon";
+import BrandMark from "@/components/BrandMark";
 import EmployeeSearch from "@/components/EmployeeSearch";
 import Avatar from "@/components/Avatar";
 import NotificationsPanel, { NotificationItem } from "@/components/NotificationsPanel";
@@ -14,7 +16,7 @@ import Breadcrumbs from "@/components/Breadcrumbs";
 import { deleteAnnouncement, listAnnouncements } from "@/lib/api/dashboard";
 import { listPendingApprovals } from "@/lib/api/leave";
 import { emitAnnouncementRemoved, onAnnouncementRemoved } from "@/lib/announcementEvents";
-import { NAV_ITEMS, ADMIN_ITEMS } from "@/lib/navigation";
+import { NAV_ITEMS, ADMIN_ITEMS, NAV_SECTIONS } from "@/lib/navigation";
 
 function loadDismissed(userId: number): Set<string> {
   if (typeof window === "undefined") return new Set();
@@ -118,69 +120,21 @@ export default function AppShell({ user, children }: { user: CurrentUser; childr
     });
   }
 
+  const sidebarWidth = sidebarCollapsed ? 84 : 240;
+
   return (
-    <div className="flex min-h-screen">
-      <aside
-        className={`${
-          sidebarCollapsed ? "w-[84px]" : "w-60"
-        } shrink-0 bg-sidebar-bg flex flex-col h-screen sticky top-0 transition-[width] duration-150`}
-      >
-        <div className={`h-14 flex items-center gap-2 border-b border-white/10 ${sidebarCollapsed ? "justify-center px-2" : "px-4"}`}>
-          <div className="h-7 w-7 rounded-md bg-sidebar-active flex items-center justify-center text-white text-xs font-bold shrink-0">
-            UW
-          </div>
-          {!sidebarCollapsed && (
-            <div className="min-w-0">
-              <div className="text-[13px] font-semibold text-white truncate">Unwritten Workmate</div>
-              <div className="text-[10.5px] text-sidebar-muted truncate">Team Unwritten</div>
-            </div>
-          )}
+    <div className="flex flex-col min-h-screen">
+      <header className="h-14 shrink-0 border-b border-border bg-surface flex items-center sticky top-0 z-30">
+        <div
+          className={`h-full flex items-center border-r border-border shrink-0 transition-[width] duration-150 ${
+            sidebarCollapsed ? "justify-center px-2" : "px-4"
+          }`}
+          style={{ width: sidebarWidth }}
+        >
+          <BrandMark compact={sidebarCollapsed} large />
         </div>
 
-        <nav className={`flex-1 overflow-y-auto py-3 ${sidebarCollapsed ? "px-2.5 space-y-1" : "px-2.5 space-y-0.5"}`}>
-          {NAV_ITEMS.filter((item) => !item.roles || item.roles.includes(user.role)).map((item) => {
-            // "Leaves" covers the whole /leave/* section (summary, apply, holidays), not just its own href.
-            const active =
-              item.href === "/leave/history"
-                ? (pathname?.startsWith("/leave") ?? false)
-                : pathname === item.href || (pathname?.startsWith(item.href + "/") ?? false);
-            return (
-              <NavLink key={item.href} href={item.href} label={item.label} icon={item.icon} active={active} collapsed={sidebarCollapsed} />
-            );
-          })}
-
-          {user.role === "HR_ADMIN" && (
-            <CollapsibleSection
-              title="Admin"
-              icon="admin"
-              items={ADMIN_ITEMS}
-              storageKey="nav_section_admin_open"
-              sidebarCollapsed={sidebarCollapsed}
-              onNavigate={toggleSidebar}
-            />
-          )}
-        </nav>
-
-        <button
-          onClick={toggleSidebar}
-          title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className={`flex items-center gap-2 py-2.5 border-t border-white/10 text-sidebar-muted hover:text-sidebar-text hover:bg-sidebar-raised ${
-            sidebarCollapsed ? "justify-center px-0" : "px-4"
-          }`}
-        >
-          <Icon name={sidebarCollapsed ? "chevronRight" : "chevronLeft"} className="h-4 w-4 shrink-0" />
-          {!sidebarCollapsed && <span className="text-[11px] font-medium">Collapse</span>}
-        </button>
-
-        {!sidebarCollapsed && (
-          <div className="px-4 py-3 border-t border-white/10 text-[10.5px] text-sidebar-muted">
-            Signed in as <span className="text-sidebar-text">{roleLabel(user.role)}</span>
-          </div>
-        )}
-      </aside>
-
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 border-b border-border bg-surface flex items-center justify-between px-5 gap-4">
+        <div className="flex-1 flex items-center justify-between px-5 gap-4 min-w-0">
           <div className="flex items-center gap-3 flex-1 max-w-md">
             <EmployeeSearch isAdmin={user.role === "HR_ADMIN"} />
           </div>
@@ -229,21 +183,94 @@ export default function AppShell({ user, children }: { user: CurrentUser; childr
                 </span>
               )}
             </button>
-            <button className="h-8 w-8 rounded-md flex items-center justify-center text-muted hover:bg-canvas" title="Settings">
-              <Icon name="settings" className="h-[18px] w-[18px]" />
-            </button>
+            {user.role === "HR_ADMIN" && (
+              <Link
+                href="/admin/policies"
+                className="h-8 w-8 rounded-md flex items-center justify-center text-muted hover:bg-canvas"
+                title="Org settings"
+              >
+                <Icon name="settings" className="h-[18px] w-[18px]" />
+              </Link>
+            )}
 
             <button onClick={() => setProfileMenuOpen(true)} className="block ml-2">
               <Avatar name={user.full_name} size={32} pictureUrl={user.picture_url} />
             </button>
           </div>
-        </header>
+        </div>
+      </header>
+
+      <div className="flex flex-1 min-h-0">
+        <aside
+          className={`shrink-0 bg-sidebar-bg flex flex-col sticky top-14 transition-[width] duration-150`}
+          style={{ width: sidebarWidth, height: "calc(100vh - 56px)" }}
+        >
+        <nav className={`flex-1 overflow-y-auto py-3 ${sidebarCollapsed ? "px-2.5 space-y-1" : "px-2.5 space-y-0.5"}`}>
+          {NAV_ITEMS.filter((item) => !item.roles || item.roles.includes(user.role)).map((item) => {
+            // "Leaves" covers the whole /leave/* section (summary, apply, holidays), not just its own href.
+            const active =
+              item.href === "/leave/history"
+                ? (pathname?.startsWith("/leave") ?? false)
+                : pathname === item.href || (pathname?.startsWith(item.href + "/") ?? false);
+            return (
+              <NavLink key={item.href} href={item.href} label={item.label} icon={item.icon} active={active} collapsed={sidebarCollapsed} />
+            );
+          })}
+
+          {user.role === "HR_ADMIN" && (
+            <CollapsibleSection
+              title="Admin"
+              icon="admin"
+              items={ADMIN_ITEMS}
+              storageKey="nav_section_admin_open"
+              sidebarCollapsed={sidebarCollapsed}
+              onNavigate={toggleSidebar}
+            />
+          )}
+
+          {NAV_SECTIONS.map((section) => {
+            const visibleItems = section.items.filter((item) => !item.roles || item.roles.includes(user.role));
+            if (visibleItems.length === 0) return null;
+            return (
+              <CollapsibleSection
+                key={section.key}
+                title={section.title}
+                icon={section.icon}
+                items={visibleItems}
+                storageKey={`nav_section_${section.key}_open`}
+                sidebarCollapsed={sidebarCollapsed}
+                onNavigate={toggleSidebar}
+              />
+            );
+          })}
+        </nav>
+
+        <button
+          onClick={toggleSidebar}
+          title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className={`flex items-center gap-2 py-2.5 border-t border-white/10 text-sidebar-muted hover:text-sidebar-text hover:bg-sidebar-raised ${
+            sidebarCollapsed ? "justify-center px-0" : "px-4"
+          }`}
+        >
+          <Icon name={sidebarCollapsed ? "chevronRight" : "chevronLeft"} className="h-4 w-4 shrink-0" />
+          {!sidebarCollapsed && <span className="text-[11px] font-medium">Collapse</span>}
+        </button>
+
+        {!sidebarCollapsed && (
+          <div className="px-4 py-3 border-t border-white/10 text-[10.5px] text-sidebar-muted">
+            Signed in as <span className="text-sidebar-text">{roleLabel(user.role)}</span>
+          </div>
+        )}
+      </aside>
+
+      <div className="flex-1 flex flex-col min-w-0">
         {pathname !== "/dashboard" && (
           <div className="h-9 border-b border-border bg-surface flex items-center px-5">
             <Breadcrumbs />
           </div>
         )}
         <main className="flex-1 overflow-y-auto p-6 bg-canvas">{children}</main>
+      </div>
       </div>
 
       <NotificationsPanel
