@@ -228,10 +228,16 @@ def _assignment_out(db: DbSession, assignment: EmployeeSalaryAssignment) -> Empl
     "/employees/{employee_id}/assignment", response_model=EmployeeSalaryAssignmentOut, status_code=status.HTTP_201_CREATED
 )
 def assign_salary_structure(employee_id: int, payload: EmployeeSalaryAssignmentCreate, db: DbSession, _: AdminEmployee):
-    if db.get(Employee, employee_id) is None:
+    employee = db.get(Employee, employee_id)
+    if employee is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
     if db.get(SalaryStructure, payload.salary_structure_id) is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Salary structure not found")
+    if payload.effective_from < employee.date_of_joining:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Effective date can't be before the employee's date of joining ({employee.date_of_joining}).",
+        )
 
     existing = db.execute(
         select(EmployeeSalaryAssignment).where(
@@ -240,6 +246,16 @@ def assign_salary_structure(employee_id: int, payload: EmployeeSalaryAssignmentC
         )
     ).scalars().first()
     if existing is not None:
+        if payload.effective_from <= existing.effective_from:
+            # Closing the existing row at payload.effective_from would set effective_to before
+            # its own effective_from -- an inverted interval that get_assignment_as_of could never
+            # match, silently making this new row resolve for periods that belonged to a
+            # different (possibly already-paid) assignment. A true historical correction isn't
+            # what this endpoint does -- it only ever supersedes going forward.
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Effective date must be after the current assignment's effective date ({existing.effective_from}).",
+            )
         existing.is_active = False
         existing.effective_to = payload.effective_from
 

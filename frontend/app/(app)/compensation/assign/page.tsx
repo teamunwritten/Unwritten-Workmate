@@ -15,6 +15,8 @@ export default function AssignCompensationPage() {
   const [effectiveFrom, setEffectiveFrom] = useState(() => new Date().toISOString().slice(0, 10));
   const [assignment, setAssignment] = useState<EmployeeSalaryAssignment | null>(null);
   const [loadingAssignment, setLoadingAssignment] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   async function loadAssignments() {
     setAssignments(await listAssignments());
@@ -40,15 +42,23 @@ export default function AssignCompensationPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!employeeId || !structureId) return;
-    const result = await assignSalaryStructure(Number(employeeId), {
-      salary_structure_id: Number(structureId),
-      effective_from: effectiveFrom,
-      annual_ctc: Number(annualCtc),
-    });
-    setAssignment(result);
-    setStructureId("");
-    setAnnualCtc("");
-    loadAssignments();
+    setError(null);
+    setSubmitting(true);
+    try {
+      const result = await assignSalaryStructure(Number(employeeId), {
+        salary_structure_id: Number(structureId),
+        effective_from: effectiveFrom,
+        annual_ctc: Number(annualCtc),
+      });
+      setAssignment(result);
+      setStructureId("");
+      setAnnualCtc("");
+      loadAssignments();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function selectEmployee(id: number) {
@@ -121,13 +131,15 @@ export default function AssignCompensationPage() {
                 type="date"
                 className="input"
                 required
+                min={employees.find((e) => e.id === Number(employeeId))?.date_of_joining}
                 value={effectiveFrom}
                 onChange={(e) => setEffectiveFrom(e.target.value)}
               />
             </div>
+            {error && <div className="col-span-3 text-sm text-danger">{error}</div>}
             <div className="col-span-3">
-              <button type="submit" className="btn-primary">
-                {assignment ? "Reassign" : "Assign"}
+              <button type="submit" className="btn-primary" disabled={submitting}>
+                {submitting ? "Saving..." : assignment ? "Reassign" : "Assign"}
               </button>
             </div>
           </form>

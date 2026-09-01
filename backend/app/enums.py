@@ -99,6 +99,10 @@ class ComponentType(str, enum.Enum):
 class CalculationType(str, enum.Enum):
     FIXED = "FIXED"
     PERCENTAGE_OF_BASIC = "PERCENTAGE_OF_BASIC"
+    # Percentage of the employee's own annual_ctc (monthly_ctc = annual_ctc / 12) -- this is what
+    # actually ties an assignment's CTC to the resolved paycheck; a structure built entirely out
+    # of FIXED components never uses the CTC an admin enters at assignment time at all.
+    PERCENTAGE_OF_CTC = "PERCENTAGE_OF_CTC"
     FORMULA = "FORMULA"
 
 

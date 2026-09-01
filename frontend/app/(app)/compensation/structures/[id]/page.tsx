@@ -89,7 +89,9 @@ export default function SalaryStructureDetailPage() {
                 <td className="px-5 py-3">{c.component_name}</td>
                 <td className="px-5 py-3 text-muted">{c.component_type}</td>
                 <td className="px-5 py-3 tabular-nums">
-                  {c.calculation_type === "PERCENTAGE_OF_BASIC" ? "% of Basic" : c.default_value ?? "--"}
+                  {c.calculation_type === "PERCENTAGE_OF_BASIC" && "% of Basic"}
+                  {c.calculation_type === "PERCENTAGE_OF_CTC" && "% of CTC"}
+                  {c.calculation_type !== "PERCENTAGE_OF_BASIC" && c.calculation_type !== "PERCENTAGE_OF_CTC" && (c.default_value ?? "--")}
                 </td>
               </tr>
             ))}

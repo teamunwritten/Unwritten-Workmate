@@ -32,7 +32,10 @@ export default function SalaryComponentsPage() {
       name: form.name,
       component_type: form.component_type,
       calculation_type: form.calculation_type,
-      percentage_of_basic: form.calculation_type === "PERCENTAGE_OF_BASIC" ? Number(form.percentage_of_basic) : null,
+      percentage_of_basic:
+        form.calculation_type === "PERCENTAGE_OF_BASIC" || form.calculation_type === "PERCENTAGE_OF_CTC"
+          ? Number(form.percentage_of_basic)
+          : null,
       is_taxable: form.is_taxable,
     });
     setForm(EMPTY);
@@ -83,11 +86,14 @@ export default function SalaryComponentsPage() {
             >
               <option value="FIXED">Fixed amount</option>
               <option value="PERCENTAGE_OF_BASIC">Percentage of Basic</option>
+              <option value="PERCENTAGE_OF_CTC">Percentage of CTC (monthly)</option>
             </select>
           </div>
-          {form.calculation_type === "PERCENTAGE_OF_BASIC" && (
+          {(form.calculation_type === "PERCENTAGE_OF_BASIC" || form.calculation_type === "PERCENTAGE_OF_CTC") && (
             <div>
-              <label className="block text-xs font-medium text-muted mb-1.5">Percentage of Basic</label>
+              <label className="block text-xs font-medium text-muted mb-1.5">
+                {form.calculation_type === "PERCENTAGE_OF_CTC" ? "Percentage of CTC" : "Percentage of Basic"}
+              </label>
               <input
                 type="number"
                 step="0.01"
@@ -130,7 +136,9 @@ export default function SalaryComponentsPage() {
                 <td className="px-5 py-3">{c.name}</td>
                 <td className="px-5 py-3 text-muted">{c.component_type}</td>
                 <td className="px-5 py-3 text-muted">
-                  {c.calculation_type === "PERCENTAGE_OF_BASIC" ? `${c.percentage_of_basic}% of Basic` : c.calculation_type}
+                  {c.calculation_type === "PERCENTAGE_OF_BASIC" && `${c.percentage_of_basic}% of Basic`}
+                  {c.calculation_type === "PERCENTAGE_OF_CTC" && `${c.percentage_of_basic}% of CTC`}
+                  {c.calculation_type !== "PERCENTAGE_OF_BASIC" && c.calculation_type !== "PERCENTAGE_OF_CTC" && c.calculation_type}
                 </td>
                 <td className="px-5 py-3">{c.is_taxable ? "Yes" : "No"}</td>
                 <td className="px-5 py-3">{c.is_active ? "Yes" : "No"}</td>

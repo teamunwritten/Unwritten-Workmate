@@ -1,6 +1,8 @@
+from calendar import monthrange
 from dataclasses import dataclass
+from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.enums import CalculationType, ComponentType, EmployeeRole, PayrollRunEntryStatus
@@ -19,13 +21,19 @@ from app.models import (
 
 def resolve_assignment_components(db: Session, assignment: EmployeeSalaryAssignment) -> list[EmployeeSalaryComponentValue]:
     """Resolves every still-active component on the assignment's structure against its
-    annual_ctc and stores the result as EmployeeSalaryComponentValue rows -- percentage-of-basic
-    components resolve against the FIXED component coded "BASIC" on the same structure (falling
-    back to 0 if none is configured). A component deactivated after being added to a structure is
-    skipped here, so it stops being included in any assignment resolved from this point on --
-    existing employees' already-resolved values are untouched (this is a point-in-time snapshot,
-    not a live formula, so past payslips stay historically accurate). Adds (does not commit) the
-    rows and returns them."""
+    annual_ctc and stores the result as EmployeeSalaryComponentValue rows.
+
+    PERCENTAGE_OF_BASIC components resolve against whichever FIXED component is coded "BASIC" on
+    the same structure (falling back to 0 if none is configured). PERCENTAGE_OF_CTC components
+    resolve against this assignment's own monthly_ctc (annual_ctc / 12) -- this is what actually
+    ties a per-employee CTC to a real paycheck; a structure built only from FIXED components never
+    reads annual_ctc at all, which is why an assignment with a real CTC but no PERCENTAGE_OF_CTC
+    components on its structure still resolves to zero everywhere.
+
+    A component deactivated after being added to a structure is skipped here, so it stops being
+    included in any assignment resolved from this point on -- existing employees' already-resolved
+    values are untouched (this is a point-in-time snapshot, not a live formula, so past payslips
+    stay historically accurate). Adds (does not commit) the rows and returns them."""
     structure_components = db.execute(
         select(SalaryStructureComponent, SalaryComponent)
         .join(SalaryComponent, SalaryStructureComponent.salary_component_id == SalaryComponent.id)
@@ -41,11 +49,16 @@ def resolve_assignment_components(db: Session, assignment: EmployeeSalaryAssignm
             basic_value = float(structure_component.default_value)
             break
 
+    monthly_ctc = float(assignment.annual_ctc) / 12
+
     resolved: list[EmployeeSalaryComponentValue] = []
     for structure_component, component in structure_components:
         if component.calculation_type == CalculationType.PERCENTAGE_OF_BASIC:
             percentage = float(component.percentage_of_basic or 0)
             value = basic_value * percentage / 100
+        elif component.calculation_type == CalculationType.PERCENTAGE_OF_CTC:
+            percentage = float(component.percentage_of_basic or 0)
+            value = monthly_ctc * percentage / 100
         else:
             value = float(structure_component.default_value or 0)
 
@@ -103,13 +116,22 @@ def build_payslip_line_items(
     return items
 
 
-def get_active_assignment(db: Session, employee_id: int) -> EmployeeSalaryAssignment | None:
+def get_assignment_as_of(db: Session, employee_id: int, as_of: date) -> EmployeeSalaryAssignment | None:
+    """Resolves whichever assignment was actually in effect on a given date -- unlike filtering on
+    is_active (which only ever finds the current one), this also finds a since-superseded
+    assignment, which a payroll run for a past period must use instead of whatever the employee's
+    CTC has since been changed to."""
     return db.execute(
         select(EmployeeSalaryAssignment).where(
             EmployeeSalaryAssignment.employee_id == employee_id,
-            EmployeeSalaryAssignment.is_active.is_(True),
+            EmployeeSalaryAssignment.effective_from <= as_of,
+            or_(EmployeeSalaryAssignment.effective_to.is_(None), EmployeeSalaryAssignment.effective_to > as_of),
         )
     ).scalars().first()
+
+
+def period_end_date(period_month: int, period_year: int) -> date:
+    return date(period_year, period_month, monthrange(period_year, period_month)[1])
 
 
 def get_resolved_component_values(db: Session, assignment_id: int) -> list[EmployeeSalaryComponentValue]:
@@ -122,15 +144,26 @@ def get_resolved_component_values(db: Session, assignment_id: int) -> list[Emplo
 
 def create_run_with_entries(db: Session, period_month: int, period_year: int, created_by_employee_id: int) -> PayrollRun:
     """Shared by the manual "New payroll run" endpoint and the month-end auto-generate job --
-    creates the run and snapshots every actively-assigned employee into it. Caller commits."""
+    creates the run and snapshots every currently-active employee who had already joined by this
+    period and has a salary assignment in effect for it. Caller commits.
+
+    Note: this only excludes employees who joined *after* the period (date_of_joining check
+    below) -- there's no termination-date field on Employee to symmetrically exclude someone who
+    left partway through the period, only the coarser is_active flag, which drops them from every
+    run from the moment they're deactivated onward, including periods they were actually employed
+    for. Fixing that needs a real termination-date field, not a payroll_service change."""
     run = PayrollRun(period_month=period_month, period_year=period_year, created_by_employee_id=created_by_employee_id)
     db.add(run)
     db.flush()
 
+    period_end = period_end_date(period_month, period_year)
     employees = db.execute(select(Employee).where(Employee.is_active.is_(True))).scalars().all()
     components_by_id = {c.id: c for c in db.execute(select(SalaryComponent)).scalars().all()}
     for employee in employees:
-        assignment = get_active_assignment(db, employee.id)
+        # Can't have earned pay for a period before they'd even joined.
+        if employee.date_of_joining > period_end:
+            continue
+        assignment = get_assignment_as_of(db, employee.id, period_end)
         if assignment is None:
             continue
         values = get_resolved_component_values(db, assignment.id)
@@ -156,12 +189,16 @@ def generate_payslips_for_run(db: Session, run: PayrollRun, template: PayslipTem
         )
     ).scalars().all()
     components_by_id = {c.id: c for c in db.execute(select(SalaryComponent)).scalars().all()}
+    period_end = period_end_date(run.period_month, run.period_year)
 
     created: list[Payslip] = []
     for entry in entries:
         if db.execute(select(Payslip).where(Payslip.payroll_run_entry_id == entry.id)).scalars().first():
             continue
-        assignment = get_active_assignment(db, entry.employee_id)
+        # Resolve whichever assignment was in effect for this run's period, not whatever is
+        # is_active *now* -- otherwise a payslip generated for a past period after the employee's
+        # CTC has since changed would silently use the new, wrong figures.
+        assignment = get_assignment_as_of(db, entry.employee_id, period_end)
         values = get_resolved_component_values(db, assignment.id) if assignment else []
         line_items = build_payslip_line_items(values, components_by_id)
         payslip = Payslip(

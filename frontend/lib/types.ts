@@ -268,7 +268,7 @@ export interface OrgSettings {
 }
 
 export type ComponentType = "EARNING" | "DEDUCTION";
-export type CalculationType = "FIXED" | "PERCENTAGE_OF_BASIC" | "FORMULA";
+export type CalculationType = "FIXED" | "PERCENTAGE_OF_BASIC" | "PERCENTAGE_OF_CTC" | "FORMULA";
 export type PayrollRunStatus = "DRAFT" | "PROCESSING" | "COMPLETED";
 export type PayrollRunEntryStatus = "PENDING" | "INCLUDED" | "EXCLUDED";
 
